@@ -6449,7 +6449,7 @@ function renderShop(){
       const lvlReq=a.minLevel||1;
       const lvlOk=G.level>=lvlReq;
       const canBuy=a.cost>0&&G.gold>=a.cost&&a.unlockMethod==='gold'&&lvlOk;
-      const lvlTag2=lvlReq>1&&!owned?`<div style="font-family:var(--pixel);font-size:4px;color:${lvlOk?'var(--teal)':'var(--red)'};margin-bottom:3px">${lvlOk?'✓ LVL '+lvlReq+' MET':'🔒 LVL '+lvlReq+' REQUIRED'}</div>`:'';
+      const lvlTag2=lvlReq>1&&!owned?`<div style="font-family:var(--cinzel);font-size:10px;color:${lvlOk?'var(--teal)':'var(--red)'};margin-bottom:3px">${lvlOk?'✓ LVL '+lvlReq+' MET':'🔒 LVL '+lvlReq+' REQUIRED'}</div>`:'';
       const isMythic=a.rarity==='mythic'||a.rarity==='ultra_mythic';
       html+=`<div class="shop-item ${owned?'owned':''} ${eq?'equipped':''}" style="${isMythic?'border-color:#ff406060;':''}">
         <div style="display:block;margin:0 auto 8px;width:64px;height:64px;border-radius:50%;overflow:visible;${isMythic?'filter:drop-shadow(0 0 10px #ff4060)':''}">
@@ -6458,11 +6458,11 @@ function renderShop(){
         <div class="si-cost rarity-${a.rarity}">${a.rarity.toUpperCase()}</div>
         <div class="si-desc">${a.desc}</div>
         ${lvlTag2||''}
-        ${a.passive?'<div style="font-family:var(--pixel);font-size:4px;color:var(--teal);margin-top:3px;line-height:1.6">⚡ '+a.passive.label+'</div>':''}
-        ${eq?'<div style="font-family:var(--cinzel);font-size:9px;color:var(--gold)">✓ EQUIPPED</div>':
+        ${a.passive?'<div style="font-family:var(--inter);font-size:12px;color:var(--teal);margin-top:4px;line-height:1.6">⚡ '+a.passive.label+'</div>':''}
+        ${eq?'<div style="font-family:var(--cinzel);font-size:12px;color:var(--gold)">✓ EQUIPPED</div>':
           owned?`<button class="btn green sm full" onclick="equipAvatar('${a.id}')">EQUIP</button>`:
-          isCard?'<div style="font-family:var(--cinzel);font-size:8px;color:var(--text3)">Collect the case card</div>':
-          a.unlockMethod==='beat_all'?'<div style="font-family:var(--cinzel);font-size:8px;color:#ff4060">Complete all units to unlock</div>':
+          isCard?'<div style="font-family:var(--cinzel);font-size:11px;color:var(--text3)">Collect the case card</div>':
+          a.unlockMethod==='beat_all'?'<div style="font-family:var(--cinzel);font-size:11px;color:#ff4060">Complete all units to unlock</div>':
           `<div class="si-cost">${a.cost.toLocaleString()} ⚖️</div><button class="btn sm full ${canBuy?'':'disabled'}" onclick="buyAvatar('${a.id}')" ${canBuy?'':'disabled'}>BUY</button>`}
       </div>`;
     });
