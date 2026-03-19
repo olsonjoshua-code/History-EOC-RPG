@@ -306,11 +306,11 @@ body::after{
 .shop-item:hover{border-color:var(--border2)}
 .shop-item.owned{border-color:rgba(39,174,96,.3)}
 .shop-item.equipped{border-color:var(--gold-dim);animation:glowPulse 3s infinite}
-.si-sprite{font-size:28px;display:block;margin-bottom:8px}
-.si-name{font-family:var(--cinzel);font-size:9px;color:var(--text);margin-bottom:4px;line-height:1.4;letter-spacing:.03em}
-.si-desc{font-family:var(--inter);font-size:11px;color:var(--text2);margin-bottom:6px;line-height:1.4}
-.si-cost{font-family:var(--cinzel);font-size:9px;color:var(--gold);margin-bottom:6px;letter-spacing:.05em}
-.si-stat{font-family:var(--inter);font-size:10px;color:var(--teal);margin-bottom:6px;font-weight:600}
+.si-sprite{font-size:34px;display:block;margin-bottom:10px}
+.si-name{font-family:var(--cinzel);font-size:12px;color:var(--text);margin-bottom:5px;line-height:1.4;letter-spacing:.03em}
+.si-desc{font-family:var(--inter);font-size:13px;color:var(--text2);margin-bottom:6px;line-height:1.5}
+.si-cost{font-family:var(--cinzel);font-size:11px;color:var(--gold);margin-bottom:6px;letter-spacing:.05em}
+.si-stat{font-family:var(--inter);font-size:13px;color:var(--teal);margin-bottom:6px;font-weight:600}
 .rarity-common{color:var(--text2)}.rarity-uncommon{color:var(--green)}.rarity-rare{color:var(--blue)}.rarity-epic{color:var(--purple)}.rarity-legendary{color:var(--gold)}.rarity-ultra_mythic{color:#ffd700;text-shadow:0 0 8px rgba(255,215,0,.6)}.rarity-mythic{background:linear-gradient(90deg,#ff4060,#c9a84c,#ff4060);background-size:200%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:shimmer 2s linear infinite;font-weight:700}
 
 /* ── COLLECTION ── */
@@ -6388,7 +6388,7 @@ function renderShop(){
     const owned=G.ownedWeapons.includes(w.id),eq=G.equippedWeapon===w.id;
     const lvlReq=w.minLevel||1;
     const lvlOk=G.level>=lvlReq;
-    const lvlTag=lvlReq>1?`<div style="font-family:var(--pixel);font-size:4px;color:${lvlOk?'var(--teal)':'var(--red)'};margin-bottom:4px">${lvlOk?'✓':'🔒'} LVL ${lvlReq} REQUIRED</div>`:'';
+    const lvlTag=lvlReq>1?`<div style="font-family:var(--cinzel);font-size:10px;color:${lvlOk?'var(--teal)':'var(--red)'};margin-bottom:4px">${lvlOk?'✓':'🔒'} LVL ${lvlReq} REQUIRED</div>`:'';
     return `<div class="shop-item ${owned?'owned':''} ${eq?'equipped':''}" style="${!owned&&!lvlOk?'opacity:0.5':''}">
       <span class="si-sprite">${w.icon}</span>
       <div class="si-name">${w.name}</div>
@@ -6396,9 +6396,9 @@ function renderShop(){
       <div class="si-stat">+${w.dmgBonus} ATK</div>
       ${lvlTag}
       <div class="si-cost rarity-${w.rarity}">${w.rarity.toUpperCase()}</div>
-      ${eq?'<div style="font-family:var(--pixel);font-size:5px;color:var(--gold)">✓ EQUIPPED</div>'
+      ${eq?'<div style="font-family:var(--cinzel);font-size:11px;color:var(--gold);letter-spacing:.05em">✓ EQUIPPED</div>'
         :owned?`<button class="btn green sm full" onclick="equipWeapon('${w.id}')">EQUIP</button>`
-        :!lvlOk?`<div style="font-family:var(--pixel);font-size:4px;color:var(--red);padding:4px 0">🔒 Reach Level ${lvlReq} to unlock</div>`
+        :!lvlOk?`<div style="font-family:var(--cinzel);font-size:10px;color:var(--red);padding:4px 0">🔒 Reach Level ${lvlReq} to unlock</div>`
         :`<div class="si-cost">${w.cost>0?w.cost+' ⚖️':'FREE'}</div>
          <button class="btn sm full ${G.gold<w.cost?'disabled':''}" onclick="buyWeapon('${w.id}')" ${G.gold<w.cost?'disabled':''}>BUY</button>`}
     </div>`;}).join('');}
@@ -6408,7 +6408,7 @@ function renderShop(){
     const dodgeAdd=armorDodgeMap[a.id]||0;
     const lvlReq=a.minLevel||1;
     const lvlOk=G.level>=lvlReq;
-    const lvlTag=lvlReq>1?`<div style="font-family:var(--pixel);font-size:4px;color:${lvlOk?'var(--teal)':'var(--red)'};margin-bottom:4px">${lvlOk?'✓':'🔒'} LVL ${lvlReq} REQUIRED</div>`:'';
+    const lvlTag=lvlReq>1?`<div style="font-family:var(--cinzel);font-size:10px;color:${lvlOk?'var(--teal)':'var(--red)'};margin-bottom:4px">${lvlOk?'✓':'🔒'} LVL ${lvlReq} REQUIRED</div>`:'';
     return `<div class="shop-item ${owned?'owned':''} ${eq?'equipped':''}" style="${!owned&&!lvlOk?'opacity:0.5':''}">
       <span class="si-sprite">${a.icon}</span>
       <div class="si-name">${a.name}</div>
@@ -6416,15 +6416,15 @@ function renderShop(){
       <div class="si-stat">-${a.defBonus} DMG &nbsp;|&nbsp; +${dodgeAdd}% DODGE</div>
       ${lvlTag}
       <div class="si-cost rarity-${a.rarity}">${a.rarity.toUpperCase()}</div>
-      ${eq?'<div style="font-family:var(--pixel);font-size:5px;color:var(--gold)">✓ EQUIPPED</div>'
+      ${eq?'<div style="font-family:var(--cinzel);font-size:11px;color:var(--gold);letter-spacing:.05em">✓ EQUIPPED</div>'
         :owned?`<button class="btn green sm full" onclick="equipArmor('${a.id}')">EQUIP</button>`
-        :!lvlOk?`<div style="font-family:var(--pixel);font-size:4px;color:var(--red);padding:4px 0">🔒 Reach Level ${lvlReq} to unlock</div>`
+        :!lvlOk?`<div style="font-family:var(--cinzel);font-size:10px;color:var(--red);padding:4px 0">🔒 Reach Level ${lvlReq} to unlock</div>`
         :`<div class="si-cost">${a.cost>0?a.cost+' ⚖️':'FREE'}</div>
          <button class="btn sm full ${G.gold<a.cost?'disabled':''}" onclick="buyArmor('${a.id}')" ${G.gold<a.cost?'disabled':''}>BUY</button>`}
     </div>`;}).join('');}
   else if(shopTab==='items'){html+=CONSUMABLES.map(c=>{const owned=(G.inventory[c.id]||0);return `<div class="shop-item"><span class="si-sprite">${c.icon}</span><div class="si-name">${c.name}</div><div class="si-desc">${c.desc}</div>${owned>0?`<div style="font-family:var(--pixel);font-size:5px;color:var(--teal)">OWNED: ${owned}</div>`:''}<div class="si-cost rarity-${c.rarity}">${c.rarity.toUpperCase()}</div><div class="si-cost">${c.cost} ⚖️</div><button class="btn sm full ${G.gold<c.cost?'disabled':''}" onclick="buyItem('${c.id}')" ${G.gold<c.cost?'disabled':''}>BUY</button></div>`;}).join('');}
   else if(shopTab==='avatars'){
-  html+='<div style="font-family:var(--pixel);font-size:5px;color:var(--text3);background:var(--bg2);border:1px solid var(--border);padding:8px;margin-bottom:10px;line-height:1.8">🎭 CITIZENS, Equip one to gain their passive bonus. Collect more by playing or spending gold.</div>';
+  html+='<div style="font-family:var(--inter);font-size:12px;color:var(--text2);background:var(--bg2);border:1px solid var(--border);padding:10px;margin-bottom:10px;line-height:1.8">🎭 CITIZENS, Equip one to gain their passive bonus. Collect more by playing or spending gold.</div>';
   const catGroups=[
     {key:'president',label:'🏠 PRESIDENTS'},
     {key:'scotus_justice',label:'⚖️ SCOTUS JUSTICES'},
