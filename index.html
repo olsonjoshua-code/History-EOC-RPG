@@ -7110,15 +7110,15 @@ async function pushToSupabase(){
     is_guest:!!(window._isGuest),is_teacher:false,updated_at:new Date().toISOString()
   };
   try{
-    await fetch(SUPA_URL+'/rest/v1/const_scores',{method:'POST',headers:{...SUPA_HEADERS,'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(scoreEntry)});
-    await fetch(SUPA_URL+'/rest/v1/const_student_stats',{method:'POST',headers:{...SUPA_HEADERS,'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(statsEntry)});
+    await fetch(SUPA_URL+'/rest/v1/amhist_scores',{method:'POST',headers:{...SUPA_HEADERS,'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(scoreEntry)});
+    await fetch(SUPA_URL+'/rest/v1/amhist_student_stats',{method:'POST',headers:{...SUPA_HEADERS,'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(statsEntry)});
   }catch(e){window._supabaseFailed=true;}
 }
 
 // ─── LEADERBOARD ───
 async function fetchLeaderboard(period){
   try{
-    let url=SUPA_URL+'/rest/v1/const_scores?order=score.desc&limit=50';
+    let url=SUPA_URL+'/rest/v1/amhist_scores?order=score.desc&limit=50';
     if(period&&period!=='all')url+=`&period=eq.${encodeURIComponent(period)}`;
     const r=await fetch(url,{headers:SUPA_HEADERS});
     return await r.json();
@@ -7165,7 +7165,7 @@ async function loadTeacherData(){
   const status=document.getElementById('td-sync-status');
   if(status)status.textContent='Loading…';
   try{
-    const r=await fetch(SUPA_URL+'/rest/v1/const_student_stats?order=score.desc&limit=200',{headers:SUPA_HEADERS});
+    const r=await fetch(SUPA_URL+'/rest/v1/amhist_student_stats?order=score.desc&limit=200',{headers:SUPA_HEADERS});
     const students=await r.json();
     if(status)status.textContent=`${students.filter(s=>!s.is_teacher).length} students · Last updated ${new Date().toLocaleTimeString()}`;
     renderTeacherView(students);
@@ -7259,8 +7259,8 @@ function renderTeacherView(everyone){
 async function deleteStudent(name){
   if(!confirm(`Remove "${name}" from the leaderboard?`))return;
   try{
-    await fetch(SUPA_URL+'/rest/v1/const_scores?name=eq.'+encodeURIComponent(name),{method:'DELETE',headers:SUPA_HEADERS});
-    await fetch(SUPA_URL+'/rest/v1/const_student_stats?name=eq.'+encodeURIComponent(name),{method:'DELETE',headers:SUPA_HEADERS});
+    await fetch(SUPA_URL+'/rest/v1/amhist_scores?name=eq.'+encodeURIComponent(name),{method:'DELETE',headers:SUPA_HEADERS});
+    await fetch(SUPA_URL+'/rest/v1/amhist_student_stats?name=eq.'+encodeURIComponent(name),{method:'DELETE',headers:SUPA_HEADERS});
     notify(name+' removed','green');loadTeacherData();
   }catch(e){notify('Error removing student','red');}
 }
@@ -7268,8 +7268,8 @@ async function resetAllScores(){
   if(!confirm('Reset ALL scores? This cannot be undone.'))return;
   if(!confirm('Are you sure? Every student score will be deleted.'))return;
   try{
-    await fetch(SUPA_URL+'/rest/v1/const_scores?id=gte.0',{method:'DELETE',headers:SUPA_HEADERS});
-    await fetch(SUPA_URL+'/rest/v1/const_student_stats?id=gte.0',{method:'DELETE',headers:SUPA_HEADERS});
+    await fetch(SUPA_URL+'/rest/v1/amhist_scores?id=gte.0',{method:'DELETE',headers:SUPA_HEADERS});
+    await fetch(SUPA_URL+'/rest/v1/amhist_student_stats?id=gte.0',{method:'DELETE',headers:SUPA_HEADERS});
     notify('Leaderboard reset!','green');loadTeacherData();
   }catch(e){notify('Error resetting','red');}
 }
