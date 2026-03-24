@@ -1012,12 +1012,36 @@ body::after{
 </div><!-- #root -->
 
 <!-- BOTTOM NAV -->
-<div id="bottom-nav" style="display:grid;grid-template-columns:repeat(5,1fr)">
+<div id="bottom-nav" style="display:grid;grid-template-columns:repeat(6,1fr)">
   <button class="bn-btn active" id="bn-hub" onclick="navHub()"><span class="bn-icon">🏠</span>Command</button>
   <button class="bn-btn" onclick="openOv('lb-ov');loadLeaderboard()"><span class="bn-icon">🏆</span>Intel</button>
   <button class="bn-btn" id="bn-armory" onclick="openArmory()"><span class="bn-icon">⚔️</span>Arsenal</button>
   <button class="bn-btn" onclick="openOv('profile-ov');renderProfile()"><span class="bn-icon">⚖️</span>Dossier</button>
   <button class="bn-btn" onclick="openOv('cards-ov');renderCards()"><span class="bn-icon">🃏</span>Archives</button>
+  <button class="bn-btn" onclick="openTutorial()"><span class="bn-icon">❓</span>Guide</button>
+</div>
+
+<!-- TUTORIAL OVERLAY -->
+<div id="tutorial-ov" class="result-ov" style="z-index:600">
+  <div style="max-width:480px;margin:0 auto;padding-bottom:20px">
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+      <div>
+        <div style="font-family:var(--mono);font-size:7px;color:var(--teal2);letter-spacing:.18em;margin-bottom:3px">◈ HISTORIAN OPS</div>
+        <div style="font-family:var(--orb);font-size:18px;color:var(--gold);letter-spacing:.08em">Field Manual</div>
+      </div>
+      <button onclick="closeTutorial()" style="font-family:var(--orb);font-size:9px;background:transparent;border:1px solid var(--border2);color:var(--text2);padding:6px 12px;cursor:pointer;letter-spacing:1px">✕ CLOSE</button>
+    </div>
+    <!-- Step indicator -->
+    <div id="tut-steps" style="display:flex;gap:4px;margin-bottom:18px"></div>
+    <!-- Step content -->
+    <div id="tut-content"></div>
+    <!-- Nav buttons -->
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button id="tut-prev" class="btn" style="border-color:var(--border2);color:var(--text2);flex:1" onclick="tutNav(-1)"><span>← PREV</span></button>
+      <button id="tut-next" class="btn teal" style="flex:2" onclick="tutNav(1)"><span id="tut-next-lbl">NEXT →</span></button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -3096,6 +3120,7 @@ function defaultG(){
     ownedWeapons:['quill'],
     ownedArmors:['none'],
     inventory:{},
+    tutorialSeen:false,
     savedAt:null
   };
 }
@@ -3559,12 +3584,163 @@ function hideContinue(){document.getElementById('continue-banner').style.display
 function launchGame(){
   SFX.playTitle();
   showScreen('hub-screen');updateHUD();renderHub();
+  // Auto-show tutorial on very first play
+  if(!G.tutorialSeen){
+    G.tutorialSeen=true;save();
+    setTimeout(()=>openTutorial(),800);
+  }
 }
 function navHub(){
   if(getShellProfile()){returnToShell();return;}
   showScreen('hub-screen');renderHub();
   document.querySelectorAll('.bn-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('bn-hub').classList.add('active');
+}
+
+// ═══════════════════════════════════════════
+// TUTORIAL SYSTEM
+// ═══════════════════════════════════════════
+const TUTORIAL_STEPS=[
+  {
+    icon:'🗺️',
+    title:'Welcome to Historian Ops',
+    body:`You are a historian deployed across 150 years of U.S. history. Your mission: battle through chapters, defeat enemies, and become a Master Historian.
+<br><br>
+The <strong style="color:var(--gold)">Command Hub</strong> is your home base. From here you can deploy to any unlocked chapter, track your progress, and manage your gear.`,
+  },
+  {
+    icon:'⚔️',
+    title:'How Battles Work',
+    body:`Every mission puts you against a historical enemy with an <strong style="color:var(--red2)">HP bar</strong>. To win, you must reduce that HP to zero.
+<br><br>
+Choose <strong style="color:var(--red2)">⚡ ATTACK</strong> or <strong style="color:var(--purple2)">🔥 SPECIAL</strong> to answer a trivia question. A correct answer deals damage. A wrong answer lets the enemy hit back.
+<br><br>
+Win only happens when the enemy's HP reaches 0 — running out of questions without finishing the enemy is a <strong style="color:var(--red2)">loss</strong>.`,
+  },
+  {
+    icon:'🛡️',
+    title:'Defend — Survival, Not Progress',
+    body:`The <strong style="color:var(--blue2)">🛡️ DEFEND</strong> button is a pure survival action. It costs no question turn.
+<br><br>
+Use it to: <strong>restore HP</strong>, and take <strong>reduced damage</strong> from the enemy's counterattack.
+<br><br>
+⚠️ Defend does <em>not</em> deal damage to the enemy. It will not help you win — only survive long enough to keep attacking.`,
+  },
+  {
+    icon:'🔥',
+    title:'Combo Streaks',
+    body:`Answer questions correctly in a row to build a <strong style="color:var(--gold)">Combo Streak</strong>.
+<br><br>
+🔥 <strong>3 in a row</strong> = 1.5× damage<br>
+🔥🔥 <strong>6 in a row</strong> = 2× damage<br>
+🔥🔥🔥 <strong>9 in a row</strong> = 3× damage
+<br><br>
+A wrong answer resets your streak to zero. The <strong style="color:var(--purple2)">SPECIAL</strong> move deals 2× base damage, but costs a combo streak charge (3+).`,
+  },
+  {
+    icon:'⚙️',
+    title:'The Arsenal — Gear Matters',
+    body:`Visit the <strong style="color:var(--gold)">⚔️ Arsenal</strong> to spend gold on better gear.
+<br><br>
+<strong style="color:var(--teal2)">WEAPONS</strong> increase how much damage each correct answer deals. Your starter Flintlock Musket is weak — you'll need upgrades for mid-game chapters.
+<br><br>
+<strong style="color:var(--blue2)">DEFENSE</strong> reduces damage you take and increases dodge chance. Good armor is what keeps you alive in boss fights.`,
+  },
+  {
+    icon:'🧪',
+    title:'Items & Citizens',
+    body:`<strong style="color:var(--green2)">ITEMS</strong> (consumables) give you one-battle boosts: healing potions, XP multipliers, and gold multipliers. Buy them before tough battles.
+<br><br>
+<strong style="color:var(--gold)">CITIZENS</strong> are historical figures you unlock by completing chapters. Equip one to gain their passive ability — XP bonuses, extra ATK, dodge chance, and more.`,
+  },
+  {
+    icon:'🔄',
+    title:'Replay & Progression',
+    body:`Stuck on a hard chapter? <strong style="color:var(--teal2)">Replay earlier missions</strong> to farm XP and gold.
+<br><br>
+Every correct answer earns rewards. Replaying lets you:<br>
+• Level up → increases base damage<br>
+• Buy better weapons → kills faster<br>
+• Buy better armor → survive longer<br>
+• Stock consumables → edge in boss fights
+<br><br>
+The goal is to come back <em>stronger</em>, not just luckier.`,
+  },
+  {
+    icon:'🏃',
+    title:'Fleeing & Gold',
+    body:`You can <strong style="color:var(--red2)">🏃 Flee</strong> any battle — but it costs gold. The further into the game you are, the more expensive retreat becomes.
+<br><br>
+Early chapters: ~20–75 gold to flee<br>
+Mid chapters: ~100–300 gold<br>
+Late/EOC: up to 1,000 gold
+<br><br>
+Plan carefully — don't burn your upgrade savings on retreats.`,
+  },
+  {
+    icon:'🏆',
+    title:'Ready, Historian?',
+    body:`You're briefed and ready for deployment. A few last tips:
+<br><br>
+• Start with <strong style="color:var(--gold)">Chapter 0 — Historian's Toolkit</strong> to learn the game<br>
+• Check the <strong style="color:var(--gold)">Arsenal</strong> before every boss fight<br>
+• Use the <strong style="color:var(--teal2)">❓ Guide</strong> button in the nav bar anytime to reopen this manual
+<br><br>
+<em style="color:var(--parchment)">"What does it mean to be an American — and who gets to decide?"</em>
+<br><br>
+Good luck, Historian.`,
+  },
+];
+
+let _tutStep=0;
+
+function openTutorial(){
+  _tutStep=0;
+  renderTutStep();
+  document.getElementById('tutorial-ov').classList.add('show');
+}
+function closeTutorial(){
+  document.getElementById('tutorial-ov').classList.remove('show');
+}
+function tutNav(dir){
+  _tutStep=Math.max(0,Math.min(TUTORIAL_STEPS.length-1,_tutStep+dir));
+  if(dir===1&&_tutStep===TUTORIAL_STEPS.length-1&&dir===1){
+    // Already at last step and pressing next = close
+    const isLast=_tutStep===TUTORIAL_STEPS.length-1;
+    if(isLast&&document.getElementById('tut-next-lbl').textContent==='DONE ✓'){
+      closeTutorial();return;
+    }
+  }
+  renderTutStep();
+}
+function renderTutStep(){
+  const s=TUTORIAL_STEPS[_tutStep];
+  const total=TUTORIAL_STEPS.length;
+  const isLast=_tutStep===total-1;
+
+  // Step dots
+  document.getElementById('tut-steps').innerHTML=TUTORIAL_STEPS.map((_,i)=>
+    `<div style="flex:1;height:3px;border-radius:2px;background:${i<=_tutStep?'var(--teal2)':'rgba(255,255,255,.08)'};transition:background .3s"></div>`
+  ).join('');
+
+  // Content
+  document.getElementById('tut-content').innerHTML=`
+    <div style="background:var(--bg3);border:1px solid var(--border2);border-left:3px solid var(--teal2);padding:20px 18px;margin-bottom:4px">
+      <div style="font-size:36px;margin-bottom:12px;text-align:center">${s.icon}</div>
+      <div style="font-family:var(--orb);font-size:13px;color:var(--gold);letter-spacing:.06em;margin-bottom:12px;text-align:center">${s.title}</div>
+      <div style="font-family:var(--raj);font-size:13px;color:var(--text);line-height:1.75">${s.body}</div>
+    </div>
+    <div style="font-family:var(--mono);font-size:8px;color:var(--text3);text-align:right;margin-top:6px">STEP ${_tutStep+1} / ${total}</div>`;
+
+  // Buttons
+  document.getElementById('tut-prev').style.opacity=_tutStep===0?'0.3':'1';
+  document.getElementById('tut-prev').disabled=_tutStep===0;
+  document.getElementById('tut-next-lbl').textContent=isLast?'DONE ✓':'NEXT →';
+  if(isLast){
+    document.getElementById('tut-next').onclick=closeTutorial;
+  } else {
+    document.getElementById('tut-next').onclick=()=>tutNav(1);
+  }
 }
 
 function renderHubBg(){
