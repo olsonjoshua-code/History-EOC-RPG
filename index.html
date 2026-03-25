@@ -3960,7 +3960,7 @@ async function pushToShell(){
     const bestTrophy=prev?(tierOrder.indexOf(trophy)>tierOrder.indexOf(prev.trophy)?trophy:prev.trophy):trophy;
     const attempts=(prev?prev.attempts||0:0)+1;
     const cards=G.earnedCards?G.earnedCards.length:0;
-    await sfetch('/rest/v1/ac_results?on_conflict=name,period,unit_id',{method:'POST',headers:{...SUPA_H,'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({name:G.name,period:G.period||'',unit_id:SHELL_UNIT_ID,best_score:bestScore,best_accuracy:bestAcc,trophy:bestTrophy,attempts:attempts,cards:cards,is_teacher:!!G.isTeacher,updated_at:new Date().toISOString()})});
+    await sfetch('/rest/v1/ac_results?on_conflict=name,period,unit_id',{method:'POST',headers:{...SUPA_H,'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({name:G.name,period:G.isTeacher?'':G.period||'',unit_id:SHELL_UNIT_ID,best_score:bestScore,best_accuracy:bestAcc,trophy:bestTrophy,attempts:attempts,cards:cards,is_teacher:!!G.isTeacher,updated_at:new Date().toISOString()})});
     notifyShellComplete();
   }catch(e){console.log('Shell push failed',e);}
 }
@@ -5760,7 +5760,7 @@ async function loadLeaderboard(){
   document.getElementById('lb-sync').textContent='Loading...';
   const all=await sfetch('/rest/v1/ac_results?unit_id=eq.'+SHELL_UNIT_ID+'&order=best_score.desc&limit=300');
   _lbData=all||[];
-  const periods=[...new Set(_lbData.map(r=>String(r.period||'')).filter(Boolean))].sort();
+  const periods=[...new Set(_lbData.filter(r=>!r.is_teacher&&r.period!=='teacher'&&r.period!=='').map(r=>String(r.period||'')).filter(Boolean))].sort();
   document.getElementById('lb-tabs').innerHTML=[{k:'all',l:'All'},...periods.map(p=>({k:p,l:'Pd '+p}))].map(t=>'<button class="lb-tab'+((_lbPeriod===t.k)?' active':'')+'" onclick="setLbPeriod(\''+t.k+'\')">'+t.l+'</button>').join('');
   drawLbTable();
   document.getElementById('lb-sync').textContent=_lbData.length+' students synced';
