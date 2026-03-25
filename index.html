@@ -1460,6 +1460,12 @@ function unlockRpgChar(charId){
   if(!G.unlockedRpgChars)G.unlockedRpgChars=[];
   if(G.unlockedRpgChars.includes(charId))return; // already unlocked
   G.unlockedRpgChars.push(charId);
+  // Also add _av version to unlockedAvatars so armory Citizens tab reflects it
+  const avId=charId+'_av';
+  if(!G.unlockedAvatars)G.unlockedAvatars=['scholar_m','scholar_f','soldier','reformer'];
+  if(AVATAR_DEFS.find(function(a){return a.id===avId;})&&!G.unlockedAvatars.includes(avId)){
+    G.unlockedAvatars.push(avId);
+  }
   save();
   // Write to shell S.unlocked
   try{
@@ -1469,7 +1475,7 @@ function unlockRpgChar(charId){
     if(!shell.unlocked.includes(charId))shell.unlocked.push(charId);
     localStorage.setItem(SHELL_KEY,JSON.stringify(shell));
   }catch(e){console.warn('Shell char unlock failed',e);}
-  // Notify live shell session
+  // Notify live shell session via postMessage
   try{window.parent.postMessage({type:'RPG_CHAR_UNLOCKED',charId,charName:getRpgChar(charId).name},'*');}catch(e){}
   // Show unlock reveal modal
   showCharUnlockModal(charId);
@@ -3893,14 +3899,21 @@ function defaultG(){
     tutorialSeen:false,
     savedAt:null,
     unlockedRpgChars:[],
+    battleCombo:0,
     equippedCharId:'washington',
     unlockedAvatars:['scholar_m','scholar_f','soldier','reformer']
   };
 }
 
+let _pushDebounce=null;
 function save(){
   if(!G)return;G.savedAt=Date.now();
   try{localStorage.setItem(SAVE_KEY,JSON.stringify(G));}catch(e){}
+  // Debounce Supabase push — sync at most every 30s during play
+  if(!G.isGuest&&G.name){
+    clearTimeout(_pushDebounce);
+    _pushDebounce=setTimeout(()=>pushToShell(),30000);
+  }
 }
 function loadSave(){
   try{
@@ -3916,7 +3929,7 @@ function loadSave(){
       if(!G.ownedArmors)G.ownedArmors=['none'];
       if(!G.inventory)G.inventory={};
       if(!G.avatarId||!AVATAR_DEFS.find(a=>a.id===G.avatarId))G.avatarId='scholar_m';
-      if(!G.unlockedAvatars)G.unlockedAvatars=['scholar_m','scholar_f','soldier','reformer'];
+      if(!G.unlockedAvatars)G.unlockedAvatars=['scholar_m','scholar_f','soldier','reformer'];if(G.battleCombo===undefined)G.battleCombo=0;
       return true;
     }
   }catch(e){}
@@ -3935,7 +3948,7 @@ function returnToShell(complete=false){
 }
 
 async function pushToShell(){
-  if(!G||!G.name||G.isGuest||G.isTeacher)return;
+  if(!G||!G.name||G.isGuest)return;
   const acc=G.qTotal>0?Math.round(G.qCorrect/G.qTotal*100):0;
   const tierOrder=['tryagain','completed','bronze','silver','gold','historian'];
   const trophy=acc===100?'historian':acc>=90?'gold':acc>=80?'silver':acc>=70?'bronze':acc>=60?'completed':'tryagain';
@@ -3947,7 +3960,7 @@ async function pushToShell(){
     const bestTrophy=prev?(tierOrder.indexOf(trophy)>tierOrder.indexOf(prev.trophy)?trophy:prev.trophy):trophy;
     const attempts=(prev?prev.attempts||0:0)+1;
     const cards=G.earnedCards?G.earnedCards.length:0;
-    await sfetch('/rest/v1/ac_results?on_conflict=name,period,unit_id',{method:'POST',headers:{...SUPA_H,'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({name:G.name,period:G.period||'',unit_id:SHELL_UNIT_ID,best_score:bestScore,best_accuracy:bestAcc,trophy:bestTrophy,attempts:attempts,cards:cards,updated_at:new Date().toISOString()})});
+    await sfetch('/rest/v1/ac_results?on_conflict=name,period,unit_id',{method:'POST',headers:{...SUPA_H,'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({name:G.name,period:G.period||'',unit_id:SHELL_UNIT_ID,best_score:bestScore,best_accuracy:bestAcc,trophy:bestTrophy,attempts:attempts,cards:cards,is_teacher:!!G.isTeacher,updated_at:new Date().toISOString()})});
     notifyShellComplete();
   }catch(e){console.log('Shell push failed',e);}
 }
@@ -4350,9 +4363,11 @@ function checkTeacher(){
 function checkContinue(){
   const sp=getShellProfile();
   if(sp&&sp.name&&!sp.isTeacher){
+    // Read shell profile then clear it so navHub can't redirect mid-session
+    try{localStorage.removeItem('ac_shell_state');}catch(e){}
     const existing=localStorage.getItem(SAVE_KEY);
     if(existing){
-      try{const d=JSON.parse(existing);if(d.name===sp.name&&d.period===String(sp.period)){G=d;if(!G.difficulty)G.difficulty='normal';if(!G.askedQMap)G.askedQMap={};if(!G.equippedWeapon||!WEAPONS.find(w=>w.id===G.equippedWeapon))G.equippedWeapon='flintlock';if(!G.equippedArmor)G.equippedArmor='none';if(!G.ownedWeapons||!WEAPONS.find(w=>G.ownedWeapons.includes(w.id)))G.ownedWeapons=['flintlock'];if(!G.ownedArmors)G.ownedArmors=['none'];if(!G.inventory)G.inventory={};if(!G.avatarId||!AVATAR_DEFS.find(a=>a.id===G.avatarId))G.avatarId='scholar_m';if(!G.unlockedAvatars)G.unlockedAvatars=['scholar_m','scholar_f','soldier','reformer'];launchGame();return;}}catch(e){}
+      try{const d=JSON.parse(existing);if(d.name===sp.name&&d.period===String(sp.period)){G=d;if(!G.difficulty)G.difficulty='normal';if(!G.askedQMap)G.askedQMap={};if(!G.equippedWeapon||!WEAPONS.find(w=>w.id===G.equippedWeapon))G.equippedWeapon='flintlock';if(!G.equippedArmor)G.equippedArmor='none';if(!G.ownedWeapons||!WEAPONS.find(w=>G.ownedWeapons.includes(w.id)))G.ownedWeapons=['flintlock'];if(!G.ownedArmors)G.ownedArmors=['none'];if(!G.inventory)G.inventory={};if(!G.avatarId||!AVATAR_DEFS.find(a=>a.id===G.avatarId))G.avatarId='scholar_m';if(!G.unlockedAvatars)G.unlockedAvatars=['scholar_m','scholar_f','soldier','reformer'];if(G.battleCombo===undefined)G.battleCombo=0;launchGame();return;}}catch(e){}
     }
     G=defaultG();G.name=sp.name;G.period=String(sp.period||'');G.isGuest=!!sp.isGuest;
     save();launchGame();return;
@@ -4373,6 +4388,18 @@ function hideContinue(){document.getElementById('continue-banner').style.display
 function launchGame(){
   SFX.playTitle();
   showScreen('hub-screen');updateHUD();renderHub();
+  // Sync gold from shell wallet if available
+  try{window.parent.postMessage({type:'RPG_GET_GOLD'},'*');}catch(e){}
+  // Grant RPG starter chars their _av counterparts in unlockedAvatars
+  (function syncRpgStarters(){
+    if(!G.unlockedRpgChars)return;
+    G.unlockedRpgChars.forEach(function(plainId){
+      var avId=plainId+'_av';
+      if(AVATAR_DEFS.find(function(a){return a.id===avId;})&&!G.unlockedAvatars.includes(avId)){
+        G.unlockedAvatars.push(avId);
+      }
+    });
+  })();
   // Auto-show tutorial on very first play
   if(!G.tutorialSeen){
     G.tutorialSeen=true;save();
@@ -4383,6 +4410,26 @@ function launchGame(){
     },800);
   }
 }
+
+// Listen for shell gold sync responses
+window.addEventListener('message',function(e){
+  if(!e.data||typeof e.data!=='object')return;
+  // Shell responding with current gold balance
+  if(e.data.type==='RPG_GOLD_BALANCE'&&typeof e.data.balance==='number'){
+    if(G&&e.data.balance>G.gold){
+      G.gold=e.data.balance;
+      save();updateHUD();
+      if(document.getElementById('arm-gold-display'))
+        document.getElementById('arm-gold-display').textContent=G.gold+' GOLD';
+    }
+  }
+  // Shell confirming a gold spend
+  if(e.data.type==='RPG_GOLD_RESULT'){
+    if(e.data.ok&&typeof e.data.balance==='number'){
+      G.gold=e.data.balance;save();updateHUD();
+    }
+  }
+});
 function navHub(){
   // Never redirect away if we're navigating within the game UI
   // Only returnToShell from the explicit shell button, not from nav clicks
@@ -5099,7 +5146,7 @@ function startBattle(chapterId,missionId){
     chapterId,missionId,mission,
     enemyHp:mission.hp,enemyMaxHp:mission.hp,
     qCount:mission.qCount,qAnswered:0,
-    qCorrectThis:0,combo:0,hintUsed:false,
+    qCorrectThis:0,hintUsed:false,
     earnedXP:0,earnedGold:0,earnedScore:0,
     askedThisBattle:[],currentQ:null,hintText:'',
     log:mission.title+'  -  the battle begins!',
@@ -5164,7 +5211,7 @@ function renderBattle(){
   ehpBar.className='hp-bar enemy'+(eHpPct<25?' crit':'');
   document.getElementById('b-ehp-num').textContent=BT.enemyHp+'/'+BT.enemyMaxHp;
   document.getElementById('battle-log').textContent=BT.log;
-  document.getElementById('btn-special').disabled=BT.combo<3;
+  document.getElementById('btn-special').disabled=G.battleCombo<3;
   const hintBtn=document.getElementById('btn-hint');
   hintBtn.textContent=BT.hintUsed?'HINT USED':'HINT (−5)';
   hintBtn.disabled=BT.hintUsed;
@@ -5180,21 +5227,21 @@ function renderComboPips(){
   for(let i=0;i<9;i++){
     let cls='pip';
     if(i===2)cls+=' t3';else if(i===5)cls+=' t6';else if(i===8)cls+=' t9';
-    if(BT.combo>i)cls+=' on';
+    if(G.battleCombo>i)cls+=' on';
     html+='<div class="'+cls+'"></div>';
   }
   document.getElementById('combo-pips').innerHTML=html;
   const ct=document.getElementById('combo-txt');
-  if(BT.combo>=9){ct.textContent='🔥🔥🔥 x'+BT.combo+' LEGEND  -  3x DMG!';ct.style.color='#ff00ff';}
-  else if(BT.combo>=6){ct.textContent='🔥🔥 x'+BT.combo+' ON FIRE  -  2x DMG!';ct.style.color='#ff2200';}
-  else if(BT.combo>=3){ct.textContent='🔥 x'+BT.combo+' HOT STREAK  -  1.5x DMG!';ct.style.color='#ff6600';}
-  else if(BT.combo>=1){ct.textContent='x'+BT.combo+' streak';ct.style.color='var(--gold)';}
+  if(G.battleCombo>=9){ct.textContent='🔥🔥🔥 x'+G.battleCombo+' LEGEND  -  3x DMG!';ct.style.color='#ff00ff';}
+  else if(G.battleCombo>=6){ct.textContent='🔥🔥 x'+G.battleCombo+' ON FIRE  -  2x DMG!';ct.style.color='#ff2200';}
+  else if(G.battleCombo>=3){ct.textContent='🔥 x'+G.battleCombo+' HOT STREAK  -  1.5x DMG!';ct.style.color='#ff6600';}
+  else if(G.battleCombo>=1){ct.textContent='x'+G.battleCombo+' streak';ct.style.color='var(--gold)';}
   else{ct.textContent='';ct.style.color='var(--gold)';}
   // Enable Chronicle Blast at 3+ combo
   const specialBtn=document.getElementById('btn-special');
   const specialSub=document.getElementById('special-sub');
   if(specialBtn){
-    const combo=BT?BT.combo:0;
+    const combo=BT?G.battleCombo:0;
     specialBtn.disabled=(combo<3);
     if(specialSub){
       if(combo>=3) specialSub.textContent='READY — 2.5× damage! Resets combo.';
@@ -5220,7 +5267,7 @@ function setBattleActionsDisabled(v){
 
 function doAction(type){
   if(BT.over||BT.enemyHp<=0||G.hp<=0)return;
-  if(type==='special'&&(!BT||BT.combo<3)){notify('Need 3 combo for Chronicle Blast!');return;}
+  if(type==='special'&&(!BT||G.battleCombo<3)){notify('Need 3 combo for Chronicle Blast!');return;}
   SFX.click();
   // DEFEND: pure survival action — no question, no turn consumed, no progress toward victory
   if(type==='defend'){
@@ -5348,14 +5395,14 @@ function answer(idx){
   G.qTotal++;BT.qAnswered++;
   const weapon=getWeapon();
   const armor=getArmor();
-  const comboMult=BT.combo>=9?2:BT.combo>=6?1.75:BT.combo>=3?1.35:1;
+  const comboMult=G.battleCombo>=9?2:G.battleCombo>=6?1.75:G.battleCombo>=3?1.35:1;
   const actionMult=BT.action==='special'?2.5:1;
   const diffPlayerMult=d==='normal'?0.75:d==='hard'?0.55:1.0;
   const critAdd=(getCharCritBonus?getCharCritBonus():0);
 
   if(isCorrect){
     SFX.correct();
-    G.qCorrect++;BT.qCorrectThis++;BT.combo++;G.currentStreak++;
+    G.qCorrect++;BT.qCorrectThis++;G.battleCombo++;G.currentStreak++;
     if(G.currentStreak>G.maxStreak)G.maxStreak=G.currentStreak;
     const baseDmg=Math.max(1,Math.floor((12+Math.floor(Math.random()*7)+Math.floor(G.level/2)+weapon.dmgBonus+getPassiveDmgBonus()+critAdd)*diffPlayerMult));
     const totalDmg=Math.round(baseDmg*comboMult*actionMult);
@@ -5369,13 +5416,13 @@ function answer(idx){
     BT._pendingCorrect=true;
     BT._pendingDmg=totalDmg;
     BT._pendingComboMult=comboMult;
-    if(BT.action==='special'){BT.combo=0;} // Chronicle Blast resets combo
+    if(BT.action==='special'){G.battleCombo=0;} // Chronicle Blast resets combo
     if(BT.enemyHp<=0)BT._pendingWin=true;
   } else {
     SFX.wrong();
     const shieldChar=typeof getRpgChar!=='undefined'?getRpgChar(G.equippedCharId||'washington'):null;
     const hasStreakShield=shieldChar&&shieldChar.id==='mlk';
-    if(hasStreakShield&&BT.combo>0){BT.combo=Math.max(0,BT.combo-1);}else{BT.combo=0;}
+    if(hasStreakShield&&G.battleCombo>0){G.battleCombo=Math.max(0,G.battleCombo-1);}else{G.battleCombo=0;}
     G.currentStreak=0;
     BT._pendingCorrect=false;
     BT._pendingDmg=0;
@@ -5428,7 +5475,7 @@ function answer(idx){
     }
 
     if(BT._pendingCorrect){
-      // Correct answer sequence
+      // Correct answer — player hits first, then enemy counter-attacks
       const smsg=BT._pendingComboMult>=2?' 🔥🔥 2x FIRE!':BT._pendingComboMult>=1.75?' 🔥 STREAK!':'';
       const scolor=BT._pendingComboMult>=2?'#ff2200':BT._pendingComboMult>=1.75?'#ff6600':'var(--teal2)';
       const actionLabel=BT.action==='special'?'CHRONICLE BLAST':BT.action==='defend'?'DEFEND':'HIT';
@@ -5440,8 +5487,38 @@ function answer(idx){
         showSeqPlayer('⚡ '+pName+' '+actionLabel+'! -'+BT._pendingDmg+' HP'+smsg,scolor,'rgba(26,188,156,.08)');
       }
       document.getElementById('battle-log').textContent='Correct! '+BT._pendingDmg+' damage.'+smsg;
+
+      // Enemy counter-attacks after correct answer (unless enemy is dead)
+      if(!BT._pendingWin){
+        setTimeout(()=>{
+          if(BT.over)return;
+          const d2=G.difficulty||'normal';
+          const armor2=getArmor();
+          const defEff=DIFF_DEF_MULT[d2];
+          const enemyDmgCorrect=getEnemyAttack(BT.chapterId,false);
+          const reduction=Math.round((armor2.defBonus+getPassiveDefBonus()+(getCharDefBonus?getCharDefBonus():0))*defEff);
+          const netDmg=Math.max(1,enemyDmgCorrect-reduction);
+          const dodged=tryDodge();
+          if(dodged){
+            SFX.dodge&&SFX.dodge();
+            spawnDmg('DODGE!','heal');
+            showSeqEnemy('⚔️ '+eName+' counters — MISS! Dodged!','var(--teal2)','rgba(26,188,156,.08)');
+          } else {
+            G.hp=Math.max(0,G.hp-netDmg);
+            SFX.hit&&SFX.hit();
+            spawnDmg('-'+netDmg,'dmg');
+            if(eEl){eEl.classList.remove('anim-enemy');void eEl.offsetWidth;eEl.classList.add('anim-enemy');setTimeout(()=>eEl.classList.remove('anim-enemy'),500);}
+            if(pEl){pEl.classList.remove('anim-hit');void pEl.offsetWidth;pEl.classList.add('anim-hit');setTimeout(()=>pEl.classList.remove('anim-hit'),500);}
+            showSeqEnemy('⚔️ '+eName+' counters '+pName+'! -'+netDmg+' HP','#e74c3c','rgba(192,57,43,.12)');
+            updateHpBars();
+          }
+          document.getElementById('battle-log').textContent=dodged?eName+' missed!':eName+' counters for '+netDmg+'!';
+          if(G.hp<=0&&!BT.over){BT.over=true;setBattleActionsDisabled(true);setTimeout(()=>showLoss(),700);}
+          save();
+        },1800);
+      }
     } else {
-      // Wrong answer sequence
+      // Wrong answer — enemy counter-attacks harder
       showSeqPlayer('✗ Incorrect!','var(--red2)','rgba(128,16,16,.08)');
       setTimeout(()=>{
         if(BT.over)return;
@@ -5465,8 +5542,8 @@ function answer(idx){
       },1800);
     }
 
-    // Show NEXT TURN button — 3s correct, 4.2s wrong
-    const totalDelay=BT._pendingCorrect?3000:4200;
+    // Show NEXT TURN button — 3.8s correct (player+enemy sequence), 4.2s wrong
+    const totalDelay=BT._pendingCorrect?3800:4200;
     setTimeout(()=>{
       if(BT.over)return;
       const ntb=document.getElementById('next-turn-btn');
@@ -5695,9 +5772,12 @@ function drawLbTable(){
   const med=['🥇','🥈','🥉'];
   document.getElementById('lb-content').innerHTML='<table class="lb-table"><thead><tr><th>#</th><th>STUDENT</th><th>PD</th><th>SCORE</th><th>ACC%</th><th>CARDS</th></tr></thead><tbody>'
     +filtered.slice(0,50).map((r,i)=>{
-      const isMe=G&&r.name===G.name&&String(r.period)===String(G.period||'');
+      const isMe=G&&r.name===G.name;
+      const isTeacherRow=r.is_teacher||r.period==='teacher';
       const rc=i===0?'var(--gold)':i===1?'#c8c8d8':i===2?'#cd7f32':'var(--text3)';
-      return '<tr class="'+(isMe?'me':'')+'"><td style="font-family:var(--orb);font-size:12px;color:'+rc+'">'+(i<3?med[i]:'#'+(i+1))+'</td><td><div class="lb-name">'+(r.name||'')+'</div></td><td style="font-size:9px;color:var(--text3)">'+(r.period?'Pd '+r.period:'')+'</td><td class="lb-score">'+((r.best_score||0).toLocaleString())+'</td><td style="color:var(--gold)">'+(r.best_accuracy||0)+'%</td><td style="color:var(--text2)">'+(r.cards||0)+'</td></tr>';
+      const pdLabel=isTeacherRow?'👤 Teacher':(r.period?'Pd '+r.period:'');
+      const nameLabel=isTeacherRow?'<span style="color:var(--amber2)">★ </span>'+(r.name||''):(r.name||'');
+      return '<tr class="'+(isMe?'me':'')+'"><td style="font-family:var(--orb);font-size:12px;color:'+rc+'">'+(i<3?med[i]:'#'+(i+1))+'</td><td><div class="lb-name">'+nameLabel+'</div></td><td style="font-size:9px;color:'+(isTeacherRow?'var(--amber2)':'var(--text3)')+'">'+pdLabel+'</td><td class="lb-score">'+((r.best_score||0).toLocaleString())+'</td><td style="color:var(--gold)">'+(r.best_accuracy||0)+'%</td><td style="color:var(--text2)">'+(r.cards||0)+'</td></tr>';
     }).join('')
     +'</tbody></table>';
 }
@@ -5888,23 +5968,29 @@ function renderArmory(){
   const inner=document.getElementById('armory-content');
   if(!inner)return;
   if(!G){inner.innerHTML='<div style="color:var(--text3);padding:20px;text-align:center">Log in to access the Arsenal.</div>';return;}
+  // Update header stats
   try{
     const agd=document.getElementById('arm-gold-display');if(agd)agd.textContent=(G.gold||0)+' GOLD';
     const ald=document.getElementById('arm-level-display');if(ald)ald.textContent='LVL '+(G.level||1);
     const ahd=document.getElementById('arm-hp-display');if(ahd)ahd.textContent=(G.hp||0)+'/'+(G.maxHp||50)+' HP';
   }catch(e){}
+  // Clear and rebuild using DOM nodes directly (no outerHTML - preserves onclick handlers)
+  inner.innerHTML='';
   try{
-    if(_armoryTab==='weapons')      inner.innerHTML=_buildWeaponsHTML();
-    else if(_armoryTab==='armor')   inner.innerHTML=_buildArmorHTML();
-    else if(_armoryTab==='items')   inner.innerHTML=_buildItemsHTML();
-    else if(_armoryTab==='citizens')inner.innerHTML=_buildCitizensHTML();
+    if(_armoryTab==='weapons')      _appendWeapons(inner);
+    else if(_armoryTab==='armor')   _appendArmor(inner);
+    else if(_armoryTab==='items')   _appendItems(inner);
+    else if(_armoryTab==='citizens')_appendCitizens(inner);
   }catch(e){
     console.error('Armory render error:',e);
     inner.innerHTML='<div style="color:var(--red2);padding:16px;font-family:var(--mono);font-size:10px">Error: '+e.message+'</div>';
   }
 }
 
-function _buildWeaponsHTML(){
+function _makeGrid(){var g=document.createElement('div');g.className='shop-grid';return g;}
+function _makeHdr(label,color){var h=document.createElement('div');h.className='shop-section-hdr';h.style.cssText='grid-column:1/-1'+(color?';color:'+color:'');h.textContent=label;return h;}
+
+function _appendWeapons(inner){
   var TIERS=[
     {label:'Tier I — Early Republic & Civil War', ids:['flintlock','saber','bayonet']},
     {label:'Tier II — Gilded Age & Populism',    ids:['repeating','protest_sign','dynamite']},
@@ -5913,11 +5999,11 @@ function _buildWeaponsHTML(){
     {label:'Tier V — Civil Rights Era',          ids:['napalm','sit_in']},
     {label:'Tier VI — Modern Arsenal',           ids:['atomic','drone']},
   ];
-  var rows=[];
+  var grid=_makeGrid();
   TIERS.forEach(function(tier){
     var tw=WEAPONS.filter(function(w){return tier.ids.indexOf(w.id)>=0;});
     if(!tw.length)return;
-    rows.push('<div class="shop-section-hdr" style="grid-column:1/-1">'+tier.label+'</div>');
+    grid.appendChild(_makeHdr(tier.label));
     tw.forEach(function(w){
       var owned=G.ownedWeapons&&G.ownedWeapons.indexOf(w.id)>=0;
       var eq=G.equippedWeapon===w.id;
@@ -5926,45 +6012,43 @@ function _buildWeaponsHTML(){
       var card=document.createElement('div');
       card.className='shop-item'+(owned?' owned':'')+(eq?' equipped':'');
       if(!owned&&!lvlOk)card.style.opacity='0.4';
-      var lvlTag=w.minLevel>1?'<div style="font-family:var(--mono);font-size:7px;color:'+(lvlOk?'var(--teal2)':'var(--red2)')+';margin-bottom:4px">'+(lvlOk?'✓':'🔒')+' LVL '+w.minLevel+' REQUIRED</div>':'';
-      var btnHTML;
-      if(eq){btnHTML='<div style="font-family:var(--orb);font-size:8px;color:var(--gold);letter-spacing:.06em;margin-top:4px">✓ EQUIPPED</div>';}
-      else if(owned){var b=document.createElement('button');b.className='btn green sm full';b.style.marginTop='4px';b.innerHTML='<span>EQUIP</span>';b.setAttribute('data-id',w.id);b.onclick=function(){equipWeapon(this.getAttribute('data-id'));renderArmory();};card.appendChild(document.createTextNode(''));btnHTML='__EQUIP_BTN_'+w.id+'__';}
-      else if(!lvlOk){btnHTML='<div style="font-family:var(--raj);font-size:9px;color:var(--red2);padding:4px 0">Reach Level '+w.minLevel+'</div>';}
-      else{btnHTML='<div class="si-price">'+(w.cost>0?w.cost+' 🪙':'FREE')+'</div><button class="btn sm full'+(canAfford?'':' disabled')+'" data-id="'+w.id+'" style="margin-top:2px" '+(canAfford?'':'disabled')+'>BUY</button>';}
       card.innerHTML='<span class="si-sprite">'+(w.icon||'⚔️')+'</span>'
         +'<div class="si-name">'+w.name+'</div>'
         +'<div class="si-desc">'+(w.desc||'')+'</div>'
         +'<div class="si-stat">+'+(w.dmgBonus||0)+' ATK</div>'
-        +lvlTag
-        +'<div class="si-rarity rarity-'+(w.rarity||'common')+'">'+(w.rarity||'common').toUpperCase()+'</div>'
-        +btnHTML;
-      // Wire buy/equip buttons after setting innerHTML
-      if(owned&&!eq){var b=card.querySelector('button');if(b){var wid=w.id;b.onclick=function(){equipWeapon(wid);renderArmory();};}}
-      else if(!owned&&lvlOk){var b=card.querySelector('button');if(b){var wid=w.id;b.onclick=function(){if(G.gold>=(WEAPONS.find(function(x){return x.id===wid;})||{cost:999}).cost){buyWeapon(wid);}};}}
-      rows.push(card);
+        +(w.minLevel>1?'<div style="font-family:var(--mono);font-size:7px;color:'+(lvlOk?'var(--teal2)':'var(--red2)')+';margin-bottom:4px">'+(lvlOk?'✓':'🔒')+' LVL '+w.minLevel+' REQUIRED</div>':'')
+        +'<div class="si-rarity rarity-'+(w.rarity||'common')+'">'+(w.rarity||'common').toUpperCase()+'</div>';
+      if(eq){
+        var d=document.createElement('div');d.style.cssText='font-family:var(--orb);font-size:8px;color:var(--gold);letter-spacing:.06em;margin-top:4px';d.textContent='✓ EQUIPPED';card.appendChild(d);
+      } else if(owned){
+        var b=document.createElement('button');b.className='btn green sm full';b.style.marginTop='4px';b.innerHTML='<span>EQUIP</span>';
+        (function(id){b.onclick=function(){equipWeapon(id);};})(w.id);
+        card.appendChild(b);
+      } else if(!lvlOk){
+        var d=document.createElement('div');d.style.cssText='font-family:var(--raj);font-size:9px;color:var(--red2);padding:4px 0';d.textContent='Reach Level '+w.minLevel;card.appendChild(d);
+      } else {
+        var p=document.createElement('div');p.className='si-price';p.textContent=w.cost>0?w.cost+' 🪙':'FREE';card.appendChild(p);
+        var b=document.createElement('button');b.className='btn sm full'+(canAfford?'':' disabled');b.style.marginTop='2px';b.innerHTML='<span>BUY</span>';b.disabled=!canAfford;
+        (function(id){b.onclick=function(){buyWeapon(id);};})(w.id);
+        card.appendChild(b);
+      }
+      grid.appendChild(card);
     });
   });
-  var grid=document.createElement('div');
-  grid.className='shop-grid';
-  rows.forEach(function(r){
-    if(typeof r==='string'){var d=document.createElement('div');d.innerHTML=r;while(d.firstChild)grid.appendChild(d.firstChild);}
-    else grid.appendChild(r);
-  });
-  return grid.outerHTML;
+  inner.appendChild(grid);
 }
 
-function _buildArmorHTML(){
+function _appendArmor(inner){
   var TIERS=[
     {label:'Tier I — Colonial & Civil War',      ids:['none','homespun','trench','union_blue']},
     {label:'Tier II — Progressive & WWI Era',    ids:['veto','judicial','flak_jacket','filibuster']},
     {label:'Tier III — Cold War & Civil Rights', ids:['containment','iron_curtain','civil_rights_act','constitution_a']},
   ];
-  var rows=[];
+  var grid=_makeGrid();
   TIERS.forEach(function(tier){
     var ta=ARMORS.filter(function(a){return tier.ids.indexOf(a.id)>=0;});
     if(!ta.length)return;
-    rows.push('<div class="shop-section-hdr" style="grid-column:1/-1">'+tier.label+'</div>');
+    grid.appendChild(_makeHdr(tier.label));
     ta.forEach(function(a){
       var owned=G.ownedArmors&&G.ownedArmors.indexOf(a.id)>=0;
       var eq=G.equippedArmor===a.id;
@@ -5973,45 +6057,44 @@ function _buildArmorHTML(){
       var card=document.createElement('div');
       card.className='shop-item'+(owned?' owned':'')+(eq?' equipped':'');
       if(!owned&&!lvlOk)card.style.opacity='0.4';
-      var lvlTag=a.minLevel>1?'<div style="font-family:var(--mono);font-size:7px;color:'+(lvlOk?'var(--teal2)':'var(--red2)')+';margin-bottom:4px">'+(lvlOk?'✓':'🔒')+' LVL '+a.minLevel+' REQUIRED</div>':'';
-      var btnHTML;
-      if(eq){btnHTML='<div style="font-family:var(--orb);font-size:8px;color:var(--gold);letter-spacing:.06em;margin-top:4px">✓ EQUIPPED</div>';}
-      else if(owned){btnHTML='__EQUIP__';}
-      else if(!lvlOk){btnHTML='<div style="font-family:var(--raj);font-size:9px;color:var(--red2);padding:4px 0">Reach Level '+a.minLevel+'</div>';}
-      else{btnHTML='<div class="si-price">'+(a.cost>0?a.cost+' 🪙':'FREE')+'</div><button class="btn sm full'+(canAfford?'':' disabled')+'" '+(canAfford?'':'disabled')+'>BUY</button>';}
       card.innerHTML='<span class="si-sprite">'+(a.icon||'🛡️')+'</span>'
         +'<div class="si-name">'+a.name+'</div>'
         +'<div class="si-desc">'+(a.desc||'')+'</div>'
         +'<div class="si-stat">-'+(a.defBonus||0)+' DMG | +'+(a.dodgeBonus||0)+'% DODGE</div>'
-        +lvlTag
-        +'<div class="si-rarity rarity-'+(a.rarity||'common')+'">'+(a.rarity||'common').toUpperCase()+'</div>'
-        +btnHTML;
-      var btn=card.querySelector('button');
-      if(btn){
-        var aid=a.id;
-        if(owned&&!eq)btn.onclick=function(){equipArmor(aid);renderArmory();};
-        else if(!owned&&lvlOk)btn.onclick=function(){buyArmor(aid);};
+        +(a.minLevel>1?'<div style="font-family:var(--mono);font-size:7px;color:'+(lvlOk?'var(--teal2)':'var(--red2)')+';margin-bottom:4px">'+(lvlOk?'✓':'🔒')+' LVL '+a.minLevel+' REQUIRED</div>':'')
+        +'<div class="si-rarity rarity-'+(a.rarity||'common')+'">'+(a.rarity||'common').toUpperCase()+'</div>';
+      if(eq){
+        var d=document.createElement('div');d.style.cssText='font-family:var(--orb);font-size:8px;color:var(--gold);letter-spacing:.06em;margin-top:4px';d.textContent='✓ EQUIPPED';card.appendChild(d);
+      } else if(owned){
+        var b=document.createElement('button');b.className='btn green sm full';b.style.marginTop='4px';b.innerHTML='<span>EQUIP</span>';
+        (function(id){b.onclick=function(){equipArmor(id);};})(a.id);
+        card.appendChild(b);
+      } else if(!lvlOk){
+        var d=document.createElement('div');d.style.cssText='font-family:var(--raj);font-size:9px;color:var(--red2);padding:4px 0';d.textContent='Reach Level '+a.minLevel;card.appendChild(d);
+      } else {
+        var p=document.createElement('div');p.className='si-price';p.textContent=a.cost>0?a.cost+' 🪙':'FREE';card.appendChild(p);
+        var b=document.createElement('button');b.className='btn sm full'+(canAfford?'':' disabled');b.style.marginTop='2px';b.innerHTML='<span>BUY</span>';b.disabled=!canAfford;
+        (function(id){b.onclick=function(){buyArmor(id);};})(a.id);
+        card.appendChild(b);
       }
-      rows.push(card);
+      grid.appendChild(card);
     });
   });
-  var grid=document.createElement('div');grid.className='shop-grid';
-  rows.forEach(function(r){if(typeof r==='string'){var d=document.createElement('div');d.innerHTML=r;while(d.firstChild)grid.appendChild(d.firstChild);}else grid.appendChild(r);});
-  return grid.outerHTML;
+  inner.appendChild(grid);
 }
 
-function _buildItemsHTML(){
+function _appendItems(inner){
   var CATS=[
     {label:'Field Medicine — Healing', fn:function(c){return c.type==='heal';}},
     {label:'Intelligence — Hints',     fn:function(c){return c.type==='hint';}},
     {label:"Historian's Edge — XP",    fn:function(c){return c.type==='xp';}},
     {label:'War Finance — Gold',       fn:function(c){return c.type==='gold';}},
   ];
-  var rows=[];
+  var grid=_makeGrid();
   CATS.forEach(function(cat){
     var items=CONSUMABLES.filter(cat.fn);
     if(!items.length)return;
-    rows.push('<div class="shop-section-hdr" style="grid-column:1/-1">'+cat.label+'</div>');
+    grid.appendChild(_makeHdr(cat.label));
     items.forEach(function(con){
       var owned=(G.inventory&&G.inventory[con.id])||0;
       var canAfford=G.gold>=con.cost;
@@ -6022,19 +6105,17 @@ function _buildItemsHTML(){
         +'<div class="si-desc">'+(con.desc||'')+'</div>'
         +(owned>0?'<div style="font-family:var(--orb);font-size:8px;color:var(--teal2);margin-bottom:5px">IN STOCK: '+owned+'</div>':'')
         +'<div class="si-rarity rarity-'+(con.rarity||'common')+'">'+(con.rarity||'common').toUpperCase()+'</div>'
-        +'<div class="si-price">'+con.cost+' 🪙</div>'
-        +'<button class="btn sm full'+(canAfford?'':' disabled')+'" '+(canAfford?'':'disabled')+'><span>BUY</span></button>';
-      var btn=card.querySelector('button');
-      if(btn){var cid=con.id;btn.onclick=function(){buyItem(cid);};}
-      rows.push(card);
+        +'<div class="si-price">'+con.cost+' 🪙</div>';
+      var b=document.createElement('button');b.className='btn sm full'+(canAfford?'':' disabled');b.innerHTML='<span>BUY</span>';b.disabled=!canAfford;
+      (function(id){b.onclick=function(){buyItem(id);};})(con.id);
+      card.appendChild(b);
+      grid.appendChild(card);
     });
   });
-  var grid=document.createElement('div');grid.className='shop-grid';
-  rows.forEach(function(r){if(typeof r==='string'){var d=document.createElement('div');d.innerHTML=r;while(d.firstChild)grid.appendChild(d.firstChild);}else grid.appendChild(r);});
-  return grid.outerHTML;
+  inner.appendChild(grid);
 }
 
-function _buildCitizensHTML(){
+function _appendCitizens(inner){
   var CATS=[
     {key:'starter',   label:'Starting Operatives', color:'var(--teal2)'},
     {key:'historical',label:'Historical Figures',   color:'var(--gold)'},
@@ -6043,24 +6124,22 @@ function _buildCitizensHTML(){
     {key:'prestige',  label:'Prestige',             color:'#d4af37'},
   ];
   var eqDef=AVATAR_DEFS.find(function(a){return a.id===(G.avatarId||'scholar_m');})||AVATAR_DEFS[0];
-  var wrap=document.createElement('div');
   var info=document.createElement('div');
   info.style.cssText='font-family:var(--raj);font-size:10px;color:var(--text2);margin-bottom:10px;padding:8px 10px;border:1px solid var(--border2);background:rgba(200,160,32,.04);border-left:3px solid var(--gold2)';
   info.textContent='Equip a citizen to gain their passive bonus in battle.';
-  wrap.appendChild(info);
+  inner.appendChild(info);
   var banner=document.createElement('div');
   banner.style.cssText='background:var(--bg2);border:1px solid var(--gold-dim);border-left:3px solid var(--gold);padding:10px 12px;margin-bottom:12px;display:flex;align-items:center;gap:10px';
   banner.innerHTML='<div style="width:44px;height:44px;border-radius:50%;overflow:hidden;border:2px solid var(--gold2);flex-shrink:0">'+getMedallionSVG(eqDef.id,44)+'</div>'
     +'<div style="flex:1"><div style="font-family:var(--orb);font-size:9px;color:var(--text3);letter-spacing:.1em;margin-bottom:2px">ACTIVE OPERATIVE</div>'
     +'<div style="font-family:var(--raj);font-size:14px;font-weight:700;color:var(--gold)">'+eqDef.name+'</div>'
     +(eqDef.passive?'<div style="font-family:var(--mono);font-size:8px;color:var(--teal2);margin-top:2px">⚡ '+eqDef.passive.label+'</div>':'')+'</div>';
-  wrap.appendChild(banner);
-  var grid=document.createElement('div');grid.className='shop-grid';
+  inner.appendChild(banner);
+  var grid=_makeGrid();
   CATS.forEach(function(cat){
     var avs=AVATAR_DEFS.filter(function(a){return a.cat===cat.key;});
     if(!avs.length)return;
-    var hdr=document.createElement('div');hdr.className='shop-section-hdr';hdr.style.cssText='grid-column:1/-1;color:'+cat.color;hdr.textContent=cat.label;
-    grid.appendChild(hdr);
+    grid.appendChild(_makeHdr(cat.label,cat.color));
     avs.forEach(function(a){
       var owned=false;
       if(a.unlockMethod==='starter')owned=true;
@@ -6068,6 +6147,11 @@ function _buildCitizensHTML(){
       else if(a.unlockMethod&&a.unlockMethod.indexOf('complete:')===0){
         var chId=a.unlockMethod.split(':')[1];
         owned=!!(G.completedChapters&&G.completedChapters.indexOf(chId)>=0);
+        // Also check G.unlockedRpgChars using plain ID (strips _av suffix)
+        if(!owned&&G.unlockedRpgChars){
+          var plainId=a.id.replace(/_av$/,'');
+          owned=G.unlockedRpgChars.indexOf(plainId)>=0;
+        }
         if(owned&&G.unlockedAvatars&&G.unlockedAvatars.indexOf(a.id)<0)G.unlockedAvatars.push(a.id);
       }
       var eq=(G.avatarId||'scholar_m')===a.id;
@@ -6078,18 +6162,24 @@ function _buildCitizensHTML(){
         +'<div class="si-name" style="color:'+(eq?cat.color:'var(--cream)')+'">'+a.name+'</div>'
         +'<div class="si-rarity rarity-'+(a.rarity||'common')+'" style="margin-bottom:5px">'+(a.rarity||'common').toUpperCase()+'</div>'
         +(a.desc?'<div class="si-desc">'+a.desc+'</div>':'')
-        +(a.passive?'<div style="font-family:var(--mono);font-size:7px;color:var(--teal2);margin:5px 0 7px;line-height:1.6;padding:4px 6px;background:rgba(26,170,144,.06);border:1px solid rgba(26,170,144,.15)">⚡ '+a.passive.label+'</div>':'')
-        +(eq?'<div style="font-family:var(--orb);font-size:8px;color:var(--gold);letter-spacing:.06em">✓ EQUIPPED</div>'
-          :owned?'<button class="btn sm full" style="border-color:'+cat.color+';color:'+cat.color+'"><span>EQUIP</span></button>'
-          :a.unlockMethod&&a.unlockMethod.indexOf('complete:')===0?'<div style="font-family:var(--raj);font-size:8px;color:var(--text3);line-height:1.5">🔒 Complete chapter to unlock</div>'
-          :'<div style="font-family:var(--raj);font-size:8px;color:var(--text3)">🔒 Locked</div>');
-      if(owned&&!eq){var btn=card.querySelector('button');if(btn){var avid=a.id;btn.onclick=function(){equipAvatar(avid);renderArmory();};}}
+        +(a.passive?'<div style="font-family:var(--mono);font-size:7px;color:var(--teal2);margin:5px 0 7px;line-height:1.6;padding:4px 6px;background:rgba(26,170,144,.06);border:1px solid rgba(26,170,144,.15)">⚡ '+a.passive.label+'</div>':'');
+      if(eq){
+        var d=document.createElement('div');d.style.cssText='font-family:var(--orb);font-size:8px;color:var(--gold);letter-spacing:.06em';d.textContent='✓ EQUIPPED';card.appendChild(d);
+      } else if(owned){
+        var b=document.createElement('button');b.className='btn sm full';b.style.cssText='border-color:'+cat.color+';color:'+cat.color;b.innerHTML='<span>EQUIP</span>';
+        (function(id){b.onclick=function(){equipAvatar(id);renderArmory();};})(a.id);
+        card.appendChild(b);
+      } else if(a.unlockMethod&&a.unlockMethod.indexOf('complete:')===0){
+        var d=document.createElement('div');d.style.cssText='font-family:var(--raj);font-size:8px;color:var(--text3);line-height:1.5';d.textContent='🔒 Complete chapter to unlock';card.appendChild(d);
+      } else {
+        var d=document.createElement('div');d.style.cssText='font-family:var(--raj);font-size:8px;color:var(--text3)';d.textContent='🔒 Locked';card.appendChild(d);
+      }
       grid.appendChild(card);
     });
   });
-  wrap.appendChild(grid);
-  return wrap.outerHTML;
+  inner.appendChild(grid);
 }
+
 
 
 
@@ -6193,8 +6283,6 @@ function useItem(id){
 window.addEventListener('DOMContentLoaded',()=>{
   renderTitleArt();
   document.addEventListener('click',function startAudio(){SFX.playTitle();document.removeEventListener('click',startAudio);},{once:true});
-  // Clear shell state so it never auto-redirects mid-session
-  try{localStorage.removeItem('ac_shell_state');}catch(e){}
   checkContinue();
 });
 
