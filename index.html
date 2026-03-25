@@ -138,6 +138,14 @@ body::after{
    TITLE SCREEN
 ══════════════════════════════════════════ */
 #title-screen{text-align:center;padding:0;}
+#welcome-back-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9000;align-items:center;justify-content:center;padding:20px;}
+#welcome-back-overlay.show{display:flex;}
+.wb-box{background:var(--bg2);border:1px solid var(--border2);max-width:380px;width:100%;padding:28px 24px;text-align:center;border-top:3px solid var(--gold);}
+.wb-avatar{width:70px;height:70px;margin:0 auto 14px;border-radius:50%;overflow:hidden;border:2px solid var(--gold-dim);}
+.wb-greeting{font-family:var(--orb);font-size:9px;color:var(--text3);letter-spacing:4px;margin-bottom:8px;}
+.wb-name{font-family:var(--orb);font-size:22px;color:var(--gold);letter-spacing:.06em;margin-bottom:4px;}
+.wb-sub{font-family:var(--raj);font-size:11px;color:var(--teal2);margin-bottom:4px;}
+.wb-progress{font-family:var(--mono);font-size:9px;color:var(--text3);margin-bottom:18px;}
 .title-cover{width:100%;margin-bottom:12px;overflow:hidden;position:relative;}
 .title-logo{font-family:var(--orb);font-weight:900;font-size:clamp(24px,7vw,42px);color:var(--gold);letter-spacing:.1em;text-transform:uppercase;text-shadow:0 0 40px rgba(200,160,32,.4),0 2px 0 rgba(0,0,0,.6);line-height:1;margin-bottom:4px;}
 .title-sub{font-family:var(--raj);font-size:13px;color:var(--text2);letter-spacing:.1em;margin-bottom:6px;}
@@ -761,6 +769,19 @@ z-index:1;}
 </div>
 
 <!-- TITLE -->
+<!-- WELCOME BACK OVERLAY -->
+<div id="welcome-back-overlay">
+  <div class="wb-box">
+    <div class="wb-avatar" id="wb-avatar"></div>
+    <div class="wb-greeting">WELCOME BACK</div>
+    <div class="wb-name" id="wb-name">Historian</div>
+    <div class="wb-sub" id="wb-sub">Curious Citizen</div>
+    <div class="wb-progress" id="wb-progress">No progress saved yet</div>
+    <button class="btn full" onclick="confirmWelcomeBack()" style="margin-bottom:8px"><span>▶ Continue as This Student</span></button>
+    <button class="btn full" onclick="switchWelcomeBack()" style="border-color:var(--border2);color:var(--text3);font-size:11px"><span>That's Not Me — Switch Player</span></button>
+  </div>
+</div>
+
 <div class="screen active" id="title-screen">
   <div class="noise-overlay"></div>
   <div class="title-cover" id="title-art"></div>
@@ -6283,8 +6304,45 @@ function useItem(id){
 window.addEventListener('DOMContentLoaded',()=>{
   renderTitleArt();
   document.addEventListener('click',function startAudio(){SFX.playTitle();document.removeEventListener('click',startAudio);},{once:true});
-  checkContinue();
+  // Try shell auto-login first — show welcome-back overlay if session found
+  const sp=getShellProfile();
+  if(sp&&sp.name&&sp.name!=='Guest'){
+    showWelcomeBack(sp);
+  } else {
+    checkContinue();
+  }
 });
+
+function showWelcomeBack(sp){
+  // Avatar
+  const avEl=document.getElementById('wb-avatar');
+  if(avEl){try{avEl.innerHTML=getMedallionSVG(sp.avatar||'scholar_m',70);}catch(e){avEl.innerHTML='<div style="font-size:36px;line-height:70px">🎓</div>';}}
+  // Name
+  const nmEl=document.getElementById('wb-name');if(nmEl)nmEl.textContent=sp.name||'Historian';
+  // Sub line
+  const subEl=document.getElementById('wb-sub');
+  if(subEl){const parts=[];if(sp.rank)parts.push(sp.rank);if(sp.period)parts.push('Period '+sp.period);subEl.textContent=parts.join(' — ')||'Curious Citizen';}
+  // Progress from existing save
+  const progEl=document.getElementById('wb-progress');
+  if(progEl){
+    try{
+      const saved=localStorage.getItem(SAVE_KEY);
+      if(saved){const d=JSON.parse(saved);if(d&&d.name===sp.name){progEl.textContent='Level '+d.level+' · '+d.score+' pts · '+(d.completedChapters||[]).length+' chapters done';}}
+      else{progEl.textContent='No progress saved yet';}
+    }catch(e){progEl.textContent='No progress saved yet';}
+  }
+  document.getElementById('welcome-back-overlay').classList.add('show');
+}
+
+function confirmWelcomeBack(){
+  document.getElementById('welcome-back-overlay').classList.remove('show');
+  checkContinue();
+}
+
+function switchWelcomeBack(){
+  try{localStorage.removeItem(SAVE_KEY);}catch(e){}
+  document.getElementById('welcome-back-overlay').classList.remove('show');
+}
 
 
 // ═══════════════════════════════════════════════════════════
