@@ -52,7 +52,7 @@ body::after{
   background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);
   background-size:40px 40px;}
 
-#root{max-width:600px;margin:0 auto;padding:16px;padding-bottom:100px;min-height:100vh;position:relative;z-index:1;}
+#root{max-width:600px;margin:0 auto;padding:16px;padding-bottom:80px;min-height:100vh;position:relative;z-index:1;}
 
 /* ── SCREENS ── */
 .screen{display:none;}.screen.active{display:block;animation:fadeIn .3s ease;}
@@ -102,7 +102,7 @@ body::after{
 .hud-stat span{display:block;color:var(--gold);font-size:11px;margin-top:1px;font-family:var(--orb);}
 
 /* ── BOTTOM NAV ── */
-#bottom-nav{background:rgba(7,9,12,.97);border-top:1px solid var(--border2);padding:4px 8px;display:none;grid-template-columns:repeat(4,1fr);gap:4px;position:sticky;bottom:0;z-index:200;margin:20px -16px -16px -16px;backdrop-filter:blur(10px);}
+#bottom-nav{background:rgba(7,9,12,.97);border-top:1px solid var(--border2);padding:6px 8px;display:none;grid-template-columns:repeat(6,1fr);gap:4px;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:600px;z-index:200;backdrop-filter:blur(10px);}
 .bn-btn{font-family:var(--raj);font-size:7px;letter-spacing:.8px;background:transparent;border:none;color:var(--text3);padding:7px 3px;cursor:pointer;text-align:center;transition:all .2s;text-transform:uppercase;}
 .bn-btn.active{color:var(--teal3);}.bn-btn.active .bn-icon{filter:drop-shadow(0 0 5px rgba(26,212,176,.5));}
 .bn-icon{font-size:17px;display:block;margin-bottom:2px;}
@@ -262,7 +262,7 @@ body::after{
   position:relative;margin-bottom:6px;
   display:flex;align-items:stretch;gap:0;
   cursor:pointer;transition:transform .2s;
-  transform:translateZ(0);
+  will-change:transform;isolation:isolate;
 }
 .camp-node:hover{transform:translateX(2px);}
 .camp-node.locked{opacity:.32;cursor:not-allowed;pointer-events:none;filter:grayscale(.4);}
@@ -291,7 +291,7 @@ body::after{
   border:1px solid var(--border);
   border-left:3px solid var(--border2);
   padding:11px 13px;
-  position:relative;overflow:clip;
+  position:relative;
   transition:all .2s;
 }
 .camp-node:not(.locked):hover .node-body{box-shadow:0 4px 18px rgba(0,0,0,.5);}
@@ -794,7 +794,7 @@ body::after{
   <!-- Current Objective -->
   <div id="ops-objective-panel"></div>
   <!-- Campaign Map -->
-  <div id="hub-content"></div>
+  <div id="hub-content" style="min-height:200px"></div>
 </div>
 
 <!-- MISSION SELECT -->
@@ -866,7 +866,7 @@ body::after{
     <div style="display:grid;grid-template-columns:1fr 120px 1fr;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border);padding:12px 8px;margin-bottom:9px;min-height:130px">
       <!-- Player -->
       <div style="display:flex;flex-direction:column;align-items:center;text-align:center" id="b-player">
-        <div id="b-p-sprite" style="width:64px;height:64px;margin:0 auto 5px;border-radius:50%;overflow:visible;border:2px solid var(--gold-dim)"></div><div id="b-char-name" style="font-family:var(--raj);font-size:7px;color:var(--gold2);letter-spacing:.05em;margin-bottom:2px;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+        <div id="b-p-sprite" style="width:64px;height:64px;margin:0 auto 5px;border-radius:50%;overflow:hidden;border:2px solid var(--gold-dim);background:var(--bg3)"></div><div id="b-char-name" style="font-family:var(--raj);font-size:7px;color:var(--gold2);letter-spacing:.05em;margin-bottom:2px;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
         <div style="font-family:var(--orb);font-size:8px;color:var(--text);margin-bottom:1px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="b-p-name2">YOU</div>
         <div style="font-family:var(--raj);font-size:8px;color:var(--teal2);font-style:italic" id="b-p-sub">Historian</div>
       </div>
@@ -878,7 +878,7 @@ body::after{
       </div>
       <!-- Enemy -->
       <div style="display:flex;flex-direction:column;align-items:center;text-align:center" id="b-enemy">
-        <span style="font-size:52px;display:block;margin-bottom:5px;filter:drop-shadow(0 4px 10px rgba(0,0,0,.5))" id="b-e-sprite">⚔️</span>
+        <div id="b-e-sprite" style="display:block;margin:0 auto 5px;width:80px;height:80px"></div>
         <div style="font-family:var(--orb);font-size:8px;color:var(--text)" id="b-e-name2">ENEMY</div>
         <div style="font-family:var(--raj);font-size:8px;color:var(--gold);font-style:italic" id="b-e-sub"></div>
       </div>
@@ -1475,7 +1475,7 @@ const CHAPTERS=[
   {id:'ch0_foundations',num:'Foundation',title:"Historian's Toolkit",icon:'📜',color:'#3a3020',
    desc:'Master the skills of historical thinking.',type:'chapter',unlockAfter:null,
    missions:[
-     {id:'ch0_m1',title:'Historical Thinking',icon:'🔍',type:'mission',hp:55,qCount:5,questions:[{q:'A PRIMARY source is best described as:',opts:["A textbook written about a historical event","A document or artifact created during the time period being studied","A historian's analysis written 50 years after the event","Any written source that discusses important historical people"],a:1,exp:'Primary sources come directly from the time period, such as diaries, speeches, photographs, and official documents.',bench:'Historical Thinking'},
+     {id:'ch0_m1',title:'Historical Thinking',icon:'📜',type:'mission',hp:55,qCount:5,questions:[{q:'A PRIMARY source is best described as:',opts:["A textbook written about a historical event","A document or artifact created during the time period being studied","A historian's analysis written 50 years after the event","Any written source that discusses important historical people"],a:1,exp:'Primary sources come directly from the time period, such as diaries, speeches, photographs, and official documents.',bench:'Historical Thinking'},
         {q:'Which of the following is the best example of a PRIMARY source?',opts:["A documentary film made in 2010 about the Civil War","A letter written by a soldier during the Civil War","A textbook chapter about the causes of the Civil War","A museum exhibit about the Civil War era"],a:1,exp:'The letter written during the Civil War is a primary source because it was created at the time of the event by someone who was there.',bench:'Historical Thinking'},
         {q:'When historians study CAUSE AND EFFECT, they are asking:',opts:["Only what happened, not why or what followed","What events happened in alphabetical order","Why something happened and what resulted from it","Which events had the most exciting outcomes"],a:2,exp:'Cause and effect means identifying why an event happened and what changed because of it.',bench:'Historical Thinking'},
         {q:'Which of the following is a CAUSE of the Civil War?',opts:["The passage of the 13th Amendment to the Constitution","The Confederate surrender at Appomattox Court House","Decades of conflict over whether slavery could spread westward","The establishment of the Freedmen's Bureau after the war"],a:2,exp:'The conflict over slavery\'s expansion was a cause because it happened before the war and helped bring it about. The others were results of the war.',bench:'Historical Thinking'},
@@ -3004,9 +3004,12 @@ function makeMedallion(cfg){
   ${worn?`<circle cx="20" cy="4" r="2.5" fill="${ring}" stroke="${ring2}" stroke-width="0.8"/><rect x="19" y="1.5" width="2" height="3" fill="${ring}"/>`:''}`;}
 
 function getMedallionSVG(avatarId,size=44){
-  const def=AVATAR_DEFS.find(a=>a.id===avatarId)||AVATAR_DEFS[0];
+  const id=avatarId||G&&G.avatarId||'scholar_m';
+  const def=AVATAR_DEFS.find(a=>a.id===id)||AVATAR_DEFS[0];
   const content=def&&def.portrait?def.portrait():'';
-  return `<svg viewBox="0 0 40 40" width="${size}" height="${size}" style="display:block;border-radius:50%;overflow:visible">${content}</svg>`;}
+  // Fallback circle if portrait is empty
+  const fallback=content?'':'<circle cx="20" cy="20" r="19" fill="#a06810"/><circle cx="20" cy="20" r="15" fill="#1a2a3a"/><text x="20" y="25" text-anchor="middle" font-size="14" fill="#c8a020">?</text>';
+  return `<svg viewBox="0 0 40 40" width="${size}" height="${size}" style="display:block;border-radius:50%;overflow:hidden;background:#0d1219">${content||fallback}</svg>`;}
 
 // History-themed avatar roster
 const AVATAR_DEFS=[
@@ -4667,7 +4670,21 @@ function renderBattle(){
   const missionLabel=BT.mission.title.toUpperCase();
   ['b-e-name','b-e-name2'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=missionLabel;});
   const esub=document.getElementById('b-e-sub');if(esub)esub.textContent=BT.mission.type==='boss'?'BOSS BATTLE':'MISSION '+BT.qAnswered+'/'+BT.qCount;
-  const esprite=document.getElementById('b-e-sprite');if(esprite)esprite.textContent=BT.mission.icon||'⚔️';
+  const esprite=document.getElementById('b-e-sprite');
+  if(esprite){
+    const ico=BT.mission.icon||'⚔️';
+    const isBoss=BT.mission.type==='boss';
+    const isElite=BT.mission.type==='elite';
+    const ringCol=isBoss?'#c04020':isElite?'#8040c0':'#2a3548';
+    const bgCol=isBoss?'#1a0808':isElite?'#100818':'#0d1219';
+    esprite.innerHTML='<svg viewBox="0 0 80 80" width="80" height="80" style="display:block;margin:0 auto">'+
+      '<circle cx="40" cy="40" r="38" fill="'+ringCol+'" opacity=".8"/>'+
+      '<circle cx="40" cy="40" r="33" fill="'+bgCol+'"/>'+
+      (isBoss?'<circle cx="40" cy="40" r="38" fill="none" stroke="'+ringCol+'" stroke-width="2" stroke-dasharray="4,3" opacity=".6"/>':'')+
+      '<text x="40" y="52" text-anchor="middle" font-size="32">'+ico+'</text>'+
+      (isBoss?'<text x="40" y="72" text-anchor="middle" font-size="6" fill="#c04020" font-family="monospace" letter-spacing="2">BOSS</text>':'')+
+      '</svg>';
+  }
   const phpBar=document.getElementById('b-php');
   phpBar.style.width=pHpPct+'%';
   phpBar.className='hp-bar player'+(pHpPct<25?' crit':pHpPct<50?' warn':'');
