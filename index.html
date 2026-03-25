@@ -693,7 +693,7 @@ z-index:1;}
 .badge-name{font-family:var(--mono);font-size:7px;color:var(--text2);}
 .badge-item:not(.earned){filter:grayscale(1);opacity:.3;}
 /* CARDS */
-.card-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;}
+.card-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}.h-card{background:var(--bg2);border:1px solid var(--border2);padding:16px 12px;text-align:center;position:relative;transition:border-color .2s;}.h-card.earned{border-color:var(--gold-dim);background:rgba(12,16,8,.8);}.h-card.earned:hover{border-color:var(--gold2);}
 .h-card{background:var(--bg2);border:1px solid var(--border2);padding:13px;text-align:center;position:relative;}
 .h-card.earned{border-color:var(--gold-dim);}
 .h-card.earned::before{content:'';position:absolute;inset:3px;border:1px solid rgba(200,160,32,.12);pointer-events:none;}
@@ -856,11 +856,11 @@ z-index:1;}
 
 
 <!-- ARMORY SCREEN -->
-<div class="screen" id="armory-screen">
+<div class="overlay" id="armory-ov">
   <!-- Top bar: back button + title + stats -->
-  <div style="background:var(--bg2);border:1px solid var(--border2);border-top:2px solid var(--border3);padding:10px 13px;margin-bottom:10px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:50;overflow:hidden">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-top:2px solid var(--border3);padding:10px 13px;margin-bottom:10px;display:flex;align-items:center;gap:10px;overflow:hidden">
     <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--teal),var(--gold),transparent);opacity:.5"></div>
-    <button class="btn sm" style="border-color:var(--teal2);color:var(--teal2);flex-shrink:0;font-size:9px;padding:8px 14px" onclick="navHub()"><span>← RETURN</span></button>
+    <button class="btn sm" style="border-color:var(--teal2);color:var(--teal2);flex-shrink:0;font-size:9px;padding:8px 14px" onclick="closeOv('armory-ov')"><span>← RETURN</span></button>
     <div style="flex:1;min-width:0">
       <div style="font-family:var(--mono);font-size:7px;color:var(--teal2);letter-spacing:.18em;margin-bottom:1px">◈ ARSENAL</div>
       <div style="font-family:var(--orb);font-size:14px;color:var(--gold);letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">American Chronicles</div>
@@ -878,10 +878,27 @@ z-index:1;}
     <button class="armory-tab" id="stab-items" onclick="setArmoryTab('items')">🧪 ITEMS</button>
     <button class="armory-tab" id="stab-citizens" onclick="setArmoryTab('citizens')">🎭 CITIZENS</button>
   </div>
+  <!-- Equipped gear quick-bar -->
+  <div id="arm-gear-bar" style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+    <div style="flex:1;min-width:0;background:var(--bg2);border:1px solid var(--border);padding:6px 8px;display:flex;align-items:center;gap:6px">
+      <span id="arm-eq-weapon-icon" style="font-size:16px">🔫</span>
+      <div style="min-width:0">
+        <div style="font-family:var(--mono);font-size:6px;color:var(--text3);letter-spacing:.1em">WEAPON</div>
+        <div id="arm-eq-weapon-name" style="font-family:var(--raj);font-size:10px;color:var(--cream);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Flintlock</div>
+      </div>
+    </div>
+    <div style="flex:1;min-width:0;background:var(--bg2);border:1px solid var(--border);padding:6px 8px;display:flex;align-items:center;gap:6px">
+      <span id="arm-eq-armor-icon" style="font-size:16px">🩲</span>
+      <div style="min-width:0">
+        <div style="font-family:var(--mono);font-size:6px;color:var(--text3);letter-spacing:.1em">DEFENSE</div>
+        <div id="arm-eq-armor-name" style="font-family:var(--raj);font-size:10px;color:var(--cream);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">None</div>
+      </div>
+    </div>
+  </div>
   <div id="armory-content"></div>
   <!-- Bottom return button for convenience after scrolling -->
   <div style="margin-top:14px;padding-bottom:6px">
-    <button class="btn full" style="border-color:var(--teal2);color:var(--teal2)" onclick="navHub()"><span>← RETURN TO COMMAND HUB</span></button>
+    <button class="btn full" style="border-color:var(--teal2);color:var(--teal2)" onclick="closeOv('armory-ov')"><span>← RETURN TO HUB</span></button>
   </div>
 </div>
 
@@ -3868,15 +3885,16 @@ function defaultG(){
     earnedBadges:[],
     askedQMap:{},
     avatarId:'scholar_m',
-    equippedWeapon:'quill',
+    equippedWeapon:'flintlock',
     equippedArmor:'none',
-    ownedWeapons:['quill'],
+    ownedWeapons:['flintlock'],
     ownedArmors:['none'],
     inventory:{},
     tutorialSeen:false,
     savedAt:null,
     unlockedRpgChars:[],
-    equippedCharId:'washington'
+    equippedCharId:'washington',
+    unlockedAvatars:['scholar_m','scholar_f','soldier','reformer']
   };
 }
 
@@ -3891,12 +3909,14 @@ function loadSave(){
       G=JSON.parse(s);
       if(!G.difficulty)G.difficulty='normal';
       if(!G.askedQMap)G.askedQMap={};
-      if(!G.equippedWeapon)G.equippedWeapon='quill';
+      // Migrate stale AP-Gov weapon IDs to History RPG defaults
+      if(!G.equippedWeapon||!WEAPONS.find(w=>w.id===G.equippedWeapon))G.equippedWeapon='flintlock';
       if(!G.equippedArmor)G.equippedArmor='none';
-      if(!G.ownedWeapons)G.ownedWeapons=['quill'];
+      if(!G.ownedWeapons||!G.ownedWeapons.length||!WEAPONS.find(w=>G.ownedWeapons.includes(w.id)))G.ownedWeapons=['flintlock'];
       if(!G.ownedArmors)G.ownedArmors=['none'];
       if(!G.inventory)G.inventory={};
-      if(!G.avatarId)G.avatarId='scholar_m';
+      if(!G.avatarId||!AVATAR_DEFS.find(a=>a.id===G.avatarId))G.avatarId='scholar_m';
+      if(!G.unlockedAvatars)G.unlockedAvatars=['scholar_m','scholar_f','soldier','reformer'];
       return true;
     }
   }catch(e){}
@@ -3974,7 +3994,7 @@ function getPassiveDodgeBonus(){const p=getAvatarPassive();if(!p)return 0;if(p.s
 // ═══════════════════════════════════════════
 // WEAPONS / ARMORS
 // ═══════════════════════════════════════════
-function getWeapon(){return WEAPONS.find(w=>w.id===(G.equippedWeapon||'quill'))||WEAPONS[0];}
+function getWeapon(){return WEAPONS.find(w=>w.id===(G.equippedWeapon||'flintlock'))||WEAPONS[0];}
 function getArmor(){return ARMORS.find(a=>a.id===(G.equippedArmor||'none'))||ARMORS[0];}
 function getDodgeChance(){
   const armor=getArmor();
@@ -4106,9 +4126,12 @@ function showScreen(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   const el=document.getElementById(id);if(el)el.classList.add('active');
   const inGame=['hub-screen','mission-screen','battle-screen','trivia-screen'].includes(id);
+  const showNav=['hub-screen','mission-screen','battle-screen','trivia-screen'].includes(id);
   document.getElementById('game-header').style.display=inGame?'block':'none';
-  document.getElementById('bottom-nav').style.display=inGame?'grid':'none';
+  document.getElementById('bottom-nav').style.display=showNav?'grid':'none';
   if(inGame)updateHUD();
+  // Always scroll to top when switching screens
+  window.scrollTo(0,0);
 }
 function openOv(id){document.getElementById(id).classList.add('show');}
 function closeOv(id){document.getElementById(id).classList.remove('show');}
@@ -4329,7 +4352,7 @@ function checkContinue(){
   if(sp&&sp.name&&!sp.isTeacher){
     const existing=localStorage.getItem(SAVE_KEY);
     if(existing){
-      try{const d=JSON.parse(existing);if(d.name===sp.name&&d.period===String(sp.period)){G=d;if(!G.difficulty)G.difficulty='normal';if(!G.askedQMap)G.askedQMap={};if(!G.equippedWeapon)G.equippedWeapon='quill';if(!G.equippedArmor)G.equippedArmor='none';if(!G.ownedWeapons)G.ownedWeapons=['quill'];if(!G.ownedArmors)G.ownedArmors=['none'];if(!G.inventory)G.inventory={};if(!G.avatarId)G.avatarId='scholar_m';launchGame();return;}}catch(e){}
+      try{const d=JSON.parse(existing);if(d.name===sp.name&&d.period===String(sp.period)){G=d;if(!G.difficulty)G.difficulty='normal';if(!G.askedQMap)G.askedQMap={};if(!G.equippedWeapon||!WEAPONS.find(w=>w.id===G.equippedWeapon))G.equippedWeapon='flintlock';if(!G.equippedArmor)G.equippedArmor='none';if(!G.ownedWeapons||!WEAPONS.find(w=>G.ownedWeapons.includes(w.id)))G.ownedWeapons=['flintlock'];if(!G.ownedArmors)G.ownedArmors=['none'];if(!G.inventory)G.inventory={};if(!G.avatarId||!AVATAR_DEFS.find(a=>a.id===G.avatarId))G.avatarId='scholar_m';if(!G.unlockedAvatars)G.unlockedAvatars=['scholar_m','scholar_f','soldier','reformer'];launchGame();return;}}catch(e){}
     }
     G=defaultG();G.name=sp.name;G.period=String(sp.period||'');G.isGuest=!!sp.isGuest;
     save();launchGame();return;
@@ -4353,11 +4376,16 @@ function launchGame(){
   // Auto-show tutorial on very first play
   if(!G.tutorialSeen){
     G.tutorialSeen=true;save();
-    setTimeout(()=>openTutorial(),800);
+    setTimeout(()=>{
+      // Only show tutorial if player is still on the hub screen
+      const hub=document.getElementById('hub-screen');
+      if(hub&&hub.classList.contains('active'))openTutorial();
+    },800);
   }
 }
 function navHub(){
-  if(getShellProfile()){returnToShell();return;}
+  // Never redirect away if we're navigating within the game UI
+  // Only returnToShell from the explicit shell button, not from nav clicks
   showScreen('hub-screen');renderHub();
   document.querySelectorAll('.bn-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('bn-hub').classList.add('active');
@@ -5678,9 +5706,34 @@ function drawLbTable(){
 // CARDS
 // ═══════════════════════════════════════════
 function renderCards(){
-  document.getElementById('cards-grid').innerHTML=CARDS.map(c=>{
+  const grid=document.getElementById('cards-grid');
+  if(!grid)return;
+  const ID_MAP={
+    lincoln:'lincoln_av',douglass:'douglass_av',tubman:'tubman_av',
+    sitting_bull:'sitting_bull_av',carnegie:'carnegie_av',gompers:'gompers_av',
+    addams:'addams_av',roosevelt_t:'roosevelt_av',dewey:'dewey_av',
+    wilson:'wilson_av',hughes:'hughes_av',fdr:'fdr_av',
+    eisenhower:'eisenhower_av',truman:'truman_av',rosie:'rosie_av',
+    jfk:'jfk_av',mlk:'mlk_av',cesar_chavez:'chavez_av',
+    nixon:'nixon_av',reagan:'reagan_av',populist:'populist_av'
+  };
+  function getAvId(cardId){return ID_MAP[cardId]||cardId+'_av';}
+  grid.innerHTML=CARDS.map(c=>{
     const earned=G&&G.earnedCards&&G.earnedCards.includes(c.id);
-    return '<div class="h-card'+(earned?' earned':'')+'"><span class="card-sprite">'+(earned?c.sprite:'🔒')+'</span><div class="card-name">'+(earned?c.name:'???')+'</div><div class="card-era">'+(earned?c.era:'Locked')+'</div>'+(earned?'<div class="card-passive">'+c.passive+'</div>':'')+'</div>';
+    const avId=getAvId(c.id);
+    const avDef=AVATAR_DEFS.find(a=>a.id===avId);
+    const passiveLabel=avDef&&avDef.passive?avDef.passive.label:c.passive;
+    const medallion=getMedallionSVG(avId,68);
+    let portrait;
+    if(earned){
+      portrait='<div style="width:68px;height:68px;border-radius:50%;overflow:hidden;border:2px solid var(--gold-dim);margin:0 auto 9px;box-shadow:0 0 12px rgba(200,160,32,.35)">'+medallion+'</div>';
+    } else {
+      portrait='<div style="position:relative;width:68px;margin:0 auto 9px"><div style="width:68px;height:68px;border-radius:50%;overflow:hidden;border:2px solid var(--border);filter:brightness(0.2) saturate(0)">'+medallion+'</div><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:24px">🔒</div></div>';
+    }
+    return '<div class="h-card '+(earned?'earned':'')+'">'+portrait
+      +'<div class="card-name" style="color:'+(earned?'var(--cream)':'var(--text3)')+'">'+( earned?c.name:'???')+'</div>'
+      +'<div class="card-era" style="color:'+(earned?'var(--teal2)':'var(--text3)')+';margin-bottom:'+(earned?'4px':'0')+'">'+( earned?c.era:'Locked')+'</div>'
+      +(earned&&passiveLabel?'<div style="font-family:var(--mono);font-size:7px;color:var(--gold);line-height:1.5;margin-top:3px;padding:3px 5px;background:rgba(200,160,32,.06);border:1px solid rgba(200,160,32,.12)">⚡ '+passiveLabel+'</div>':'')+'</div>';
   }).join('');
 }
 
@@ -5795,15 +5848,30 @@ function resetSave(){try{localStorage.removeItem(SAVE_KEY);}catch(e){}location.r
 let _armoryTab='weapons';
 
 function openArmory(){
-  showScreen('armory-screen');renderArmory();
+  openOv('armory-ov');
+  updateArmoryGearBar();
+  renderArmory();
   document.querySelectorAll('.bn-btn').forEach(b=>b.classList.remove('active'));
   const ab=document.getElementById('bn-armory');if(ab)ab.classList.add('active');
 }
 
+function updateArmoryGearBar(){
+  if(!G)return;
+  const cw=WEAPONS.find(w=>w.id===(G.equippedWeapon||'flintlock'))||WEAPONS[0];
+  const ca=ARMORS.find(a=>a.id===(G.equippedArmor||'none'))||ARMORS[0];
+  const wi=document.getElementById('arm-eq-weapon-icon');const wn=document.getElementById('arm-eq-weapon-name');
+  const ai=document.getElementById('arm-eq-armor-icon');const an=document.getElementById('arm-eq-armor-name');
+  if(wi)wi.textContent=cw.icon||'⚔️';
+  if(wn)wn.textContent=cw.name;
+  if(ai)ai.textContent=ca.icon||'🛡️';
+  if(an)an.textContent=ca.name;
+}
+
 function setArmoryTab(tab){
   _armoryTab=tab;
-  document.querySelectorAll('.armory-tab,.shop-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.armory-tab').forEach(t=>t.classList.remove('active'));
   const el=document.getElementById('stab-'+tab);if(el)el.classList.add('active');
+  updateArmoryGearBar();
   renderArmory();
 }
 
@@ -5820,119 +5888,234 @@ function renderArmory(){
   const inner=document.getElementById('armory-content');
   if(!inner)return;
   if(!G){inner.innerHTML='<div style="color:var(--text3);padding:20px;text-align:center">Log in to access the Arsenal.</div>';return;}
-  // Update gold display
-  const agd=document.getElementById('arm-gold-display');if(agd)agd.textContent=(G.gold||0)+' GOLD';
-  let html='<div class="shop-grid">';
-
-  // ── WEAPONS ──────────────────────────────────────────────────
-  if(_armoryTab==='weapons'){
-    WEAPONS.forEach(w=>{
-      const owned=G.ownedWeapons&&G.ownedWeapons.includes(w.id);
-      const eq=G.equippedWeapon===w.id;
-      const lvlOk=G.level>=(w.minLevel||1);
-      const canAfford=G.gold>=w.cost;
-      const lvlTag=w.minLevel>1?`<div class="si-req" style="color:${lvlOk?'var(--teal2)':'var(--red2)'}">${lvlOk?'✓':'🔒'} LVL ${w.minLevel} REQUIRED</div>`:'';
-      html+=`<div class="shop-item ${owned?'owned':''} ${eq?'equipped':''}" style="${!owned&&!lvlOk?'opacity:.45':''}">
-        <span class="si-sprite">${w.icon||'⚔️'}</span>
-        <div class="si-name">${w.name}</div>
-        <div class="si-desc">${w.desc||w.flavor||''}</div>
-        <div class="si-stat">+${w.dmgBonus||0} ATK</div>
-        ${lvlTag}
-        <div class="si-rarity rarity-${w.rarity||'common'}">${(w.rarity||'COMMON').toUpperCase()}</div>
-        ${eq?'<div style="font-family:var(--orb);font-size:8px;color:var(--gold);margin-bottom:4px">✓ EQUIPPED</div>'
-          :owned?`<button class="btn green sm full" onclick="equipWeapon('${w.id}');renderArmory()">EQUIP</button>`
-          :!lvlOk?`<div style="font-family:var(--raj);font-size:9px;color:var(--red2);padding:4px 0">Reach Lv ${w.minLevel}</div>`
-          :`<div class="si-price">${w.cost>0?w.cost+' 🪙':'FREE'}</div>
-           <button class="btn sm full${canAfford?'':' disabled'}" onclick="buyWeapon('${w.id}')" ${canAfford?'':'disabled'}>BUY</button>`}
-      </div>`;
-    });
+  try{
+    const agd=document.getElementById('arm-gold-display');if(agd)agd.textContent=(G.gold||0)+' GOLD';
+    const ald=document.getElementById('arm-level-display');if(ald)ald.textContent='LVL '+(G.level||1);
+    const ahd=document.getElementById('arm-hp-display');if(ahd)ahd.textContent=(G.hp||0)+'/'+(G.maxHp||50)+' HP';
+  }catch(e){}
+  try{
+    if(_armoryTab==='weapons')      inner.innerHTML=_buildWeaponsHTML();
+    else if(_armoryTab==='armor')   inner.innerHTML=_buildArmorHTML();
+    else if(_armoryTab==='items')   inner.innerHTML=_buildItemsHTML();
+    else if(_armoryTab==='citizens')inner.innerHTML=_buildCitizensHTML();
+  }catch(e){
+    console.error('Armory render error:',e);
+    inner.innerHTML='<div style="color:var(--red2);padding:16px;font-family:var(--mono);font-size:10px">Error: '+e.message+'</div>';
   }
+}
 
-  // ── ARMOR ─────────────────────────────────────────────────────
-  else if(_armoryTab==='armor'){
-    ARMORS.forEach(a=>{
-      const owned=G.ownedArmors&&G.ownedArmors.includes(a.id);
-      const eq=G.equippedArmor===a.id;
-      const lvlOk=G.level>=(a.minLevel||1);
-      const canAfford=G.gold>=a.cost;
-      const lvlTag=a.minLevel>1?`<div class="si-req" style="color:${lvlOk?'var(--teal2)':'var(--red2)'}">${lvlOk?'✓':'🔒'} LVL ${a.minLevel} REQUIRED</div>`:'';
-      html+=`<div class="shop-item ${owned?'owned':''} ${eq?'equipped':''}" style="${!owned&&!lvlOk?'opacity:.45':''}">
-        <span class="si-sprite">${a.icon||'🛡️'}</span>
-        <div class="si-name">${a.name}</div>
-        <div class="si-desc">${a.desc||a.flavor||''}</div>
-        <div class="si-stat">+${a.defBonus||0} DEF</div>
-        ${lvlTag}
-        <div class="si-rarity rarity-${a.rarity||'common'}">${(a.rarity||'COMMON').toUpperCase()}</div>
-        ${eq?'<div style="font-family:var(--orb);font-size:8px;color:var(--gold);margin-bottom:4px">✓ EQUIPPED</div>'
-          :owned?`<button class="btn green sm full" onclick="equipArmor('${a.id}');renderArmory()">EQUIP</button>`
-          :!lvlOk?`<div style="font-family:var(--raj);font-size:9px;color:var(--red2);padding:4px 0">Reach Lv ${a.minLevel}</div>`
-          :`<div class="si-price">${a.cost>0?a.cost+' 🪙':'FREE'}</div>
-           <button class="btn sm full${canAfford?'':' disabled'}" onclick="buyArmor('${a.id}')" ${canAfford?'':'disabled'}>BUY</button>`}
-      </div>`;
+function _buildWeaponsHTML(){
+  var TIERS=[
+    {label:'Tier I — Early Republic & Civil War', ids:['flintlock','saber','bayonet']},
+    {label:'Tier II — Gilded Age & Populism',    ids:['repeating','protest_sign','dynamite']},
+    {label:'Tier III — Progressive Era & WWI',   ids:['doughboy','trench_knife']},
+    {label:'Tier IV — WWII & Cold War',          ids:['m1_garand','labor_strike']},
+    {label:'Tier V — Civil Rights Era',          ids:['napalm','sit_in']},
+    {label:'Tier VI — Modern Arsenal',           ids:['atomic','drone']},
+  ];
+  var rows=[];
+  TIERS.forEach(function(tier){
+    var tw=WEAPONS.filter(function(w){return tier.ids.indexOf(w.id)>=0;});
+    if(!tw.length)return;
+    rows.push('<div class="shop-section-hdr" style="grid-column:1/-1">'+tier.label+'</div>');
+    tw.forEach(function(w){
+      var owned=G.ownedWeapons&&G.ownedWeapons.indexOf(w.id)>=0;
+      var eq=G.equippedWeapon===w.id;
+      var lvlOk=G.level>=(w.minLevel||1);
+      var canAfford=G.gold>=w.cost;
+      var card=document.createElement('div');
+      card.className='shop-item'+(owned?' owned':'')+(eq?' equipped':'');
+      if(!owned&&!lvlOk)card.style.opacity='0.4';
+      var lvlTag=w.minLevel>1?'<div style="font-family:var(--mono);font-size:7px;color:'+(lvlOk?'var(--teal2)':'var(--red2)')+';margin-bottom:4px">'+(lvlOk?'✓':'🔒')+' LVL '+w.minLevel+' REQUIRED</div>':'';
+      var btnHTML;
+      if(eq){btnHTML='<div style="font-family:var(--orb);font-size:8px;color:var(--gold);letter-spacing:.06em;margin-top:4px">✓ EQUIPPED</div>';}
+      else if(owned){var b=document.createElement('button');b.className='btn green sm full';b.style.marginTop='4px';b.innerHTML='<span>EQUIP</span>';b.setAttribute('data-id',w.id);b.onclick=function(){equipWeapon(this.getAttribute('data-id'));renderArmory();};card.appendChild(document.createTextNode(''));btnHTML='__EQUIP_BTN_'+w.id+'__';}
+      else if(!lvlOk){btnHTML='<div style="font-family:var(--raj);font-size:9px;color:var(--red2);padding:4px 0">Reach Level '+w.minLevel+'</div>';}
+      else{btnHTML='<div class="si-price">'+(w.cost>0?w.cost+' 🪙':'FREE')+'</div><button class="btn sm full'+(canAfford?'':' disabled')+'" data-id="'+w.id+'" style="margin-top:2px" '+(canAfford?'':'disabled')+'>BUY</button>';}
+      card.innerHTML='<span class="si-sprite">'+(w.icon||'⚔️')+'</span>'
+        +'<div class="si-name">'+w.name+'</div>'
+        +'<div class="si-desc">'+(w.desc||'')+'</div>'
+        +'<div class="si-stat">+'+(w.dmgBonus||0)+' ATK</div>'
+        +lvlTag
+        +'<div class="si-rarity rarity-'+(w.rarity||'common')+'">'+(w.rarity||'common').toUpperCase()+'</div>'
+        +btnHTML;
+      // Wire buy/equip buttons after setting innerHTML
+      if(owned&&!eq){var b=card.querySelector('button');if(b){var wid=w.id;b.onclick=function(){equipWeapon(wid);renderArmory();};}}
+      else if(!owned&&lvlOk){var b=card.querySelector('button');if(b){var wid=w.id;b.onclick=function(){if(G.gold>=(WEAPONS.find(function(x){return x.id===wid;})||{cost:999}).cost){buyWeapon(wid);}};}}
+      rows.push(card);
     });
-  }
+  });
+  var grid=document.createElement('div');
+  grid.className='shop-grid';
+  rows.forEach(function(r){
+    if(typeof r==='string'){var d=document.createElement('div');d.innerHTML=r;while(d.firstChild)grid.appendChild(d.firstChild);}
+    else grid.appendChild(r);
+  });
+  return grid.outerHTML;
+}
 
-  // ── ITEMS / CONSUMABLES ───────────────────────────────────────
-  else if(_armoryTab==='items'){
-    CONSUMABLES.forEach(con=>{
-      const owned=(G.inventory&&G.inventory[con.id])||0;
-      const canAfford=G.gold>=con.cost;
-      html+=`<div class="shop-item">
-        <span class="si-sprite">${con.icon||'🧪'}</span>
-        <div class="si-name">${con.name}</div>
-        <div class="si-desc">${con.desc||con.flavor||''}</div>
-        ${owned>0?`<div style="font-family:var(--orb);font-size:8px;color:var(--teal2);margin-bottom:5px">OWNED: ${owned}</div>`:''}
-        <div class="si-rarity rarity-${con.rarity||'common'}">${(con.rarity||'COMMON').toUpperCase()}</div>
-        <div class="si-price">${con.cost} 🪙</div>
-        <button class="btn sm full${canAfford?'':' disabled'}" onclick="buyConsumable('${con.id}')" ${canAfford?'':'disabled'}>BUY</button>
-      </div>`;
+function _buildArmorHTML(){
+  var TIERS=[
+    {label:'Tier I — Colonial & Civil War',      ids:['none','homespun','trench','union_blue']},
+    {label:'Tier II — Progressive & WWI Era',    ids:['veto','judicial','flak_jacket','filibuster']},
+    {label:'Tier III — Cold War & Civil Rights', ids:['containment','iron_curtain','civil_rights_act','constitution_a']},
+  ];
+  var rows=[];
+  TIERS.forEach(function(tier){
+    var ta=ARMORS.filter(function(a){return tier.ids.indexOf(a.id)>=0;});
+    if(!ta.length)return;
+    rows.push('<div class="shop-section-hdr" style="grid-column:1/-1">'+tier.label+'</div>');
+    ta.forEach(function(a){
+      var owned=G.ownedArmors&&G.ownedArmors.indexOf(a.id)>=0;
+      var eq=G.equippedArmor===a.id;
+      var lvlOk=G.level>=(a.minLevel||1);
+      var canAfford=G.gold>=a.cost;
+      var card=document.createElement('div');
+      card.className='shop-item'+(owned?' owned':'')+(eq?' equipped':'');
+      if(!owned&&!lvlOk)card.style.opacity='0.4';
+      var lvlTag=a.minLevel>1?'<div style="font-family:var(--mono);font-size:7px;color:'+(lvlOk?'var(--teal2)':'var(--red2)')+';margin-bottom:4px">'+(lvlOk?'✓':'🔒')+' LVL '+a.minLevel+' REQUIRED</div>':'';
+      var btnHTML;
+      if(eq){btnHTML='<div style="font-family:var(--orb);font-size:8px;color:var(--gold);letter-spacing:.06em;margin-top:4px">✓ EQUIPPED</div>';}
+      else if(owned){btnHTML='__EQUIP__';}
+      else if(!lvlOk){btnHTML='<div style="font-family:var(--raj);font-size:9px;color:var(--red2);padding:4px 0">Reach Level '+a.minLevel+'</div>';}
+      else{btnHTML='<div class="si-price">'+(a.cost>0?a.cost+' 🪙':'FREE')+'</div><button class="btn sm full'+(canAfford?'':' disabled')+'" '+(canAfford?'':'disabled')+'>BUY</button>';}
+      card.innerHTML='<span class="si-sprite">'+(a.icon||'🛡️')+'</span>'
+        +'<div class="si-name">'+a.name+'</div>'
+        +'<div class="si-desc">'+(a.desc||'')+'</div>'
+        +'<div class="si-stat">-'+(a.defBonus||0)+' DMG | +'+(a.dodgeBonus||0)+'% DODGE</div>'
+        +lvlTag
+        +'<div class="si-rarity rarity-'+(a.rarity||'common')+'">'+(a.rarity||'common').toUpperCase()+'</div>'
+        +btnHTML;
+      var btn=card.querySelector('button');
+      if(btn){
+        var aid=a.id;
+        if(owned&&!eq)btn.onclick=function(){equipArmor(aid);renderArmory();};
+        else if(!owned&&lvlOk)btn.onclick=function(){buyArmor(aid);};
+      }
+      rows.push(card);
     });
-  }
+  });
+  var grid=document.createElement('div');grid.className='shop-grid';
+  rows.forEach(function(r){if(typeof r==='string'){var d=document.createElement('div');d.innerHTML=r;while(d.firstChild)grid.appendChild(d.firstChild);}else grid.appendChild(r);});
+  return grid.outerHTML;
+}
 
-  // ── CITIZENS / CHARACTERS ─────────────────────────────────────
-  else if(_armoryTab==='citizens'){
-    const cats=[
-      {key:'starter',   label:'🎓 Starters'},
-      {key:'historical',label:'📜 Historical Figures'},
-      {key:'rival',     label:'⚔️ Rivals'},
-      {key:'special',   label:'🌟 Theme Unlocks'},
-      {key:'prestige',  label:'👑 Prestige'},
-    ];
-    html='<div style="font-family:var(--raj);font-size:10px;color:var(--text2);margin-bottom:12px;padding:8px 10px;border:1px solid var(--border2);background:rgba(200,160,32,.04);border-left:3px solid var(--gold2)">Unlock characters by completing chapters. Each has a unique passive bonus — choose based on your play style.</div><div class="shop-grid">';
-    cats.forEach(cat=>{
-      const chars=RPG_CHARS.filter(ch=>ch.cat===cat.key);
-      if(!chars.length)return;
-      html+=`<div class="shop-section-hdr">${cat.label}</div>`;
-      chars.forEach(ch=>{
-        const unlocked=isRpgCharUnlocked(ch.id);
-        const eq=(G.equippedCharId||'washington')===ch.id;
-        const isRival=ch.cat==='rival';
-        const accent=isRival?'var(--red2)':ch.cat==='prestige'?'#d4af37':'var(--gold)';
-        const portrait=getCharPortraitHTML(ch.id,ch.sprite,52);
-        const statLine=[];
-        if(ch.hp!==0)statLine.push('HP '+(ch.hp>0?'+':'')+ch.hp);
-        if(ch.def!==0)statLine.push('DEF '+(ch.def>0?'+':'')+ch.def);
-        if(ch.goldMult!==1.0)statLine.push('GOLD ×'+ch.goldMult.toFixed(2));
-        if(ch.critBonus>0)statLine.push('CRIT +'+ch.critBonus);
-        if(ch.bossResist>0)statLine.push('BOSS +'+ch.bossResist);
-        if(ch.recovery>0)statLine.push('REC +'+ch.recovery);
-        html+=`<div class="shop-item ${unlocked?'owned':''} ${eq?'equipped':''}" style="opacity:${unlocked?1:.4}">
-          <div style="width:52px;height:52px;border-radius:50%;overflow:hidden;border:2px solid ${eq?accent:'var(--border2)'};margin:0 auto 8px;background:var(--bg3)">${portrait}</div>
-          <div class="si-name" style="color:${eq?accent:'var(--cream)'}">${ch.name}</div>
-          <div style="font-family:var(--raj);font-size:8px;color:${accent};margin-bottom:4px">${ch.era}${isRival?' · RIVAL':''}</div>
-          ${unlocked
-            ?`<div class="si-desc">${statLine.join(' · ')||'Balanced build'}</div>
-              ${ch.strength?`<div style="font-family:var(--raj);font-size:8px;color:var(--text2);font-style:italic;margin-bottom:6px">${ch.strength}</div>`:''}
-              ${eq?'<div style="font-family:var(--orb);font-size:8px;color:var(--gold)">✓ EQUIPPED</div>'
-                :!isRival?`<button class="btn sm full" style="border-color:${accent};color:${accent}" onclick="equipRpgChar('${ch.id}');renderArmory()">EQUIP</button>`:'<div style="font-family:var(--raj);font-size:8px;color:var(--text3);font-style:italic">Rival — stat influence only</div>'}`
-            :`<div style="font-family:var(--raj);font-size:9px;color:var(--text3);margin-bottom:4px">🔒 ${getUnlockHint(ch)}</div>`}
-        </div>`;
-      });
+function _buildItemsHTML(){
+  var CATS=[
+    {label:'Field Medicine — Healing', fn:function(c){return c.type==='heal';}},
+    {label:'Intelligence — Hints',     fn:function(c){return c.type==='hint';}},
+    {label:"Historian's Edge — XP",    fn:function(c){return c.type==='xp';}},
+    {label:'War Finance — Gold',       fn:function(c){return c.type==='gold';}},
+  ];
+  var rows=[];
+  CATS.forEach(function(cat){
+    var items=CONSUMABLES.filter(cat.fn);
+    if(!items.length)return;
+    rows.push('<div class="shop-section-hdr" style="grid-column:1/-1">'+cat.label+'</div>');
+    items.forEach(function(con){
+      var owned=(G.inventory&&G.inventory[con.id])||0;
+      var canAfford=G.gold>=con.cost;
+      var card=document.createElement('div');
+      card.className='shop-item';
+      card.innerHTML='<span class="si-sprite">'+(con.icon||'🧪')+'</span>'
+        +'<div class="si-name">'+con.name+'</div>'
+        +'<div class="si-desc">'+(con.desc||'')+'</div>'
+        +(owned>0?'<div style="font-family:var(--orb);font-size:8px;color:var(--teal2);margin-bottom:5px">IN STOCK: '+owned+'</div>':'')
+        +'<div class="si-rarity rarity-'+(con.rarity||'common')+'">'+(con.rarity||'common').toUpperCase()+'</div>'
+        +'<div class="si-price">'+con.cost+' 🪙</div>'
+        +'<button class="btn sm full'+(canAfford?'':' disabled')+'" '+(canAfford?'':'disabled')+'><span>BUY</span></button>';
+      var btn=card.querySelector('button');
+      if(btn){var cid=con.id;btn.onclick=function(){buyItem(cid);};}
+      rows.push(card);
     });
-  }
+  });
+  var grid=document.createElement('div');grid.className='shop-grid';
+  rows.forEach(function(r){if(typeof r==='string'){var d=document.createElement('div');d.innerHTML=r;while(d.firstChild)grid.appendChild(d.firstChild);}else grid.appendChild(r);});
+  return grid.outerHTML;
+}
 
-  html+='</div>';
-  inner.innerHTML=html;
+function _buildCitizensHTML(){
+  var CATS=[
+    {key:'starter',   label:'Starting Operatives', color:'var(--teal2)'},
+    {key:'historical',label:'Historical Figures',   color:'var(--gold)'},
+    {key:'president', label:'Presidents',           color:'var(--amber2)'},
+    {key:'special',   label:'Special Characters',   color:'#d4af37'},
+    {key:'prestige',  label:'Prestige',             color:'#d4af37'},
+  ];
+  var eqDef=AVATAR_DEFS.find(function(a){return a.id===(G.avatarId||'scholar_m');})||AVATAR_DEFS[0];
+  var wrap=document.createElement('div');
+  var info=document.createElement('div');
+  info.style.cssText='font-family:var(--raj);font-size:10px;color:var(--text2);margin-bottom:10px;padding:8px 10px;border:1px solid var(--border2);background:rgba(200,160,32,.04);border-left:3px solid var(--gold2)';
+  info.textContent='Equip a citizen to gain their passive bonus in battle.';
+  wrap.appendChild(info);
+  var banner=document.createElement('div');
+  banner.style.cssText='background:var(--bg2);border:1px solid var(--gold-dim);border-left:3px solid var(--gold);padding:10px 12px;margin-bottom:12px;display:flex;align-items:center;gap:10px';
+  banner.innerHTML='<div style="width:44px;height:44px;border-radius:50%;overflow:hidden;border:2px solid var(--gold2);flex-shrink:0">'+getMedallionSVG(eqDef.id,44)+'</div>'
+    +'<div style="flex:1"><div style="font-family:var(--orb);font-size:9px;color:var(--text3);letter-spacing:.1em;margin-bottom:2px">ACTIVE OPERATIVE</div>'
+    +'<div style="font-family:var(--raj);font-size:14px;font-weight:700;color:var(--gold)">'+eqDef.name+'</div>'
+    +(eqDef.passive?'<div style="font-family:var(--mono);font-size:8px;color:var(--teal2);margin-top:2px">⚡ '+eqDef.passive.label+'</div>':'')+'</div>';
+  wrap.appendChild(banner);
+  var grid=document.createElement('div');grid.className='shop-grid';
+  CATS.forEach(function(cat){
+    var avs=AVATAR_DEFS.filter(function(a){return a.cat===cat.key;});
+    if(!avs.length)return;
+    var hdr=document.createElement('div');hdr.className='shop-section-hdr';hdr.style.cssText='grid-column:1/-1;color:'+cat.color;hdr.textContent=cat.label;
+    grid.appendChild(hdr);
+    avs.forEach(function(a){
+      var owned=false;
+      if(a.unlockMethod==='starter')owned=true;
+      else if(G.unlockedAvatars&&G.unlockedAvatars.indexOf(a.id)>=0)owned=true;
+      else if(a.unlockMethod&&a.unlockMethod.indexOf('complete:')===0){
+        var chId=a.unlockMethod.split(':')[1];
+        owned=!!(G.completedChapters&&G.completedChapters.indexOf(chId)>=0);
+        if(owned&&G.unlockedAvatars&&G.unlockedAvatars.indexOf(a.id)<0)G.unlockedAvatars.push(a.id);
+      }
+      var eq=(G.avatarId||'scholar_m')===a.id;
+      var card=document.createElement('div');
+      card.className='shop-item'+(owned?' owned':'')+(eq?' equipped':'');
+      card.style.opacity=owned?'1':'0.45';
+      card.innerHTML='<div style="width:64px;height:64px;border-radius:50%;overflow:hidden;border:2px solid '+(eq?cat.color:'var(--border2)')+';margin:0 auto 8px">'+getMedallionSVG(a.id,64)+'</div>'
+        +'<div class="si-name" style="color:'+(eq?cat.color:'var(--cream)')+'">'+a.name+'</div>'
+        +'<div class="si-rarity rarity-'+(a.rarity||'common')+'" style="margin-bottom:5px">'+(a.rarity||'common').toUpperCase()+'</div>'
+        +(a.desc?'<div class="si-desc">'+a.desc+'</div>':'')
+        +(a.passive?'<div style="font-family:var(--mono);font-size:7px;color:var(--teal2);margin:5px 0 7px;line-height:1.6;padding:4px 6px;background:rgba(26,170,144,.06);border:1px solid rgba(26,170,144,.15)">⚡ '+a.passive.label+'</div>':'')
+        +(eq?'<div style="font-family:var(--orb);font-size:8px;color:var(--gold);letter-spacing:.06em">✓ EQUIPPED</div>'
+          :owned?'<button class="btn sm full" style="border-color:'+cat.color+';color:'+cat.color+'"><span>EQUIP</span></button>'
+          :a.unlockMethod&&a.unlockMethod.indexOf('complete:')===0?'<div style="font-family:var(--raj);font-size:8px;color:var(--text3);line-height:1.5">🔒 Complete chapter to unlock</div>'
+          :'<div style="font-family:var(--raj);font-size:8px;color:var(--text3)">🔒 Locked</div>');
+      if(owned&&!eq){var btn=card.querySelector('button');if(btn){var avid=a.id;btn.onclick=function(){equipAvatar(avid);renderArmory();};}}
+      grid.appendChild(card);
+    });
+  });
+  wrap.appendChild(grid);
+  return wrap.outerHTML;
+}
+
+
+
+// Buy/equip avatar (added to match AP Gov system)
+function buyAvatar(id){
+  const a=AVATAR_DEFS.find(x=>x.id===id);
+  if(!a||G.gold<(a.cost||0))return;
+  G.gold-=a.cost;
+  if(!G.unlockedAvatars)G.unlockedAvatars=[];
+  if(!G.unlockedAvatars.includes(id))G.unlockedAvatars.push(id);
+  save();updateHUD();SFX.gold();
+  notify('Unlocked '+a.name+'!','green');
+  renderArmory();
+}
+function equipAvatar(id){
+  const a=AVATAR_DEFS.find(x=>x.id===id);
+  if(!a)return;
+  G.avatarId=id;
+  save();updateHUD();
+  // Update battle sprite if in game
+  const bps=document.getElementById('b-player-sprite');
+  if(bps)bps.innerHTML=getMedallionSVG(id,64);
+  const hs=document.getElementById('hud-sprite');
+  if(hs)hs.innerHTML=getMedallionSVG(id,36);
+  notify('Operative changed to '+(a.name)+'!','green');
+  renderArmory();
 }
 
 
@@ -5941,28 +6124,28 @@ function buyWeapon(id){
   if(!w||G.gold<w.cost||G.ownedWeapons.includes(w.id))return;
   G.gold-=w.cost;G.ownedWeapons.push(w.id);G.equippedWeapon=w.id;
   save();SFX.gold();notify('Equipped '+w.name+'!','green');
-  renderArmory();updateHUD();
+  renderArmory();updateHUD();updateArmoryGearBar();
 }
 function equipWeapon(id){
   if(!G.ownedWeapons.includes(id))return;
   G.equippedWeapon=id;
   const w=WEAPONS.find(x=>x.id===id);
   save();notify('Equipped '+(w?w.name:id)+'!','green');
-  renderArmory();updateHUD();
+  renderArmory();updateHUD();updateArmoryGearBar();
 }
 function buyArmor(id){
   const a=ARMORS.find(x=>x.id===id);
   if(!a||G.gold<a.cost||G.ownedArmors.includes(a.id))return;
   G.gold-=a.cost;G.ownedArmors.push(a.id);G.equippedArmor=a.id;
   save();SFX.gold();notify('Equipped '+a.name+'!','green');
-  renderArmory();updateHUD();
+  renderArmory();updateHUD();updateArmoryGearBar();
 }
 function equipArmor(id){
   if(!G.ownedArmors.includes(id))return;
   G.equippedArmor=id;
   const a=ARMORS.find(x=>x.id===id);
   save();notify('Equipped '+(a?a.name:id)+'!','green');
-  renderArmory();updateHUD();
+  renderArmory();updateHUD();updateArmoryGearBar();
 }
 function buyItem(id){
   const c=CONSUMABLES.find(x=>x.id===id);
@@ -5971,6 +6154,8 @@ function buyItem(id){
   save();SFX.gold();notify('Bought '+c.name+'!','green');
   renderArmory();updateHUD();
 }
+// Alias for legacy calls
+function buyConsumable(id){buyItem(id);}
 function useItem(id){
   const c=CONSUMABLES.find(x=>x.id===id);
   if(!c||!(G.inventory[id]>0))return;
@@ -6008,6 +6193,8 @@ function useItem(id){
 window.addEventListener('DOMContentLoaded',()=>{
   renderTitleArt();
   document.addEventListener('click',function startAudio(){SFX.playTitle();document.removeEventListener('click',startAudio);},{once:true});
+  // Clear shell state so it never auto-redirects mid-session
+  try{localStorage.removeItem('ac_shell_state');}catch(e){}
   checkContinue();
 });
 
